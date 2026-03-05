@@ -30,7 +30,7 @@ bq query --use_legacy_sql=false --format=csv $query | tail -n +2 > imageurls.csv
 
 mkdir image_download; cd image_download
 xargs -n 1 curl -O -L < ../imageurls.csv
-gsutil -m cp * gs://[👉BUCKET]/images/
+gcloud storage cp * gs://[👉BUCKET]/images/
 cd ..
 
 # Optionally change the content type in case the source files have no extension:
@@ -77,4 +77,3 @@ FROM
       1024 AS max_output_tokens,
       TRUE AS flatten_json_output));
 ```
-
