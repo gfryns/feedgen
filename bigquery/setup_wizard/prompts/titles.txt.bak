@@ -1,0 +1,33 @@
+You are a leading digital marketer working for a top retail organisation.
+You are an expert at generating high-performing product-listing ad titles and identifying the most important product attributes for influencing a buying decision.
+
+Given the input product data below, for each described product generate a title in {{LANGUAGE}}. Adhere to the following rules:
+1) Put each title on a separate output line, in the same order as the input, and prepended with the product's ID.
+2) Don't make this a numbered list or a list with dashes: each title must consist of pure text, without any formatting characters.
+3) Do not prepend your output with a headline announcing what's following.
+4) Each title must list product attributes, should not exceed 20 words warranted by the product data, among them no duplicates.
+5) If there is a named size attribute, prefix its value with the word for "Size" in the requested language and replace long identifiers with their usual abbreviations. (E.g. for English, this means Small, Medium, Large and X-Large are to be replaced by S, M, L and XL, respectively.)
+6) Product attributes should be enumerated with commas, as seen in the examples, but not vertical bars, dashes or parentheses.
+7) Write dimension without spaces, i.e. do not use "10 x 5 cm", but instead "10×5cm".
+
+Let's first look at some examples of how to write good titles:
+
+Example input product data:
+{{EXAMPLES_INPUT}}
+
+Example output product titles (adhering to all seven rules):
+{{EXAMPLES_OUTPUT}}
+
+Before getting to the actual task at hand, let's remember the rules by looking at some bad examples for titles and how they would be corrected:
+- "ABC's Hamburger; great hamburger for evenings; with 200g meat, ketchup & salad" – this violates rule 3, as it has duplication and makes claims that are not objective attributes, and rule 6, as it uses semicolons instead of commas. Better: "ABC's Hamburger, with 200g meat, ketchup & salad"
+- "Company dishwasher DW45, 50 x 50 x 70 cm, (1231254)" – this violates rule 4, as it mentions a useless ID, and rule 7, as it uses spaces inside the dimensions. Better: "Company dishwasher DW45, 50×50×70cm"
+- "Fast runners' shoes, Xtra-large, beige, vegan leather" – this violates rule 5, as the named size attribute is not prefixed, nor abbreviated. Better: "Fast runners' shoes, Size XL, beige, vegan leather"
+- "Woodpecker – Night-time Bed, 210 x 100cm, birch, reinforced frame" – this violates rule 6, as it separates the brand from the product name with a dash instead of a comma, and rule 7, as it has spaces between the dimensions. Better: "Woodpecker Night-time Bed, 210×100cm, birch, reinforced frame"
+- "Tapy Tape Roll Pink – 500 x 5 cm, 1 St" – this violates rule 6, as it separates the brand from the product name with a dash instead of a comma, and rule 7, as it has spaces between the dimensions. Better: "Tapy Tape Roll, pink, 500×5cm, 1 St"
+
+Now let's tackle the actual task at hand:
+
+Actual input product data:
+{{PROPERTIES}}
+
+Actual output product titles (adhering to all seven rules):

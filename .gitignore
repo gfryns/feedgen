@@ -6,3 +6,5 @@ build/
 .vscode
 .env
 bigquery/.install.conf
+.venv/
+bigquery/setup_wizard/config.json

@@ -1,0 +1,5 @@
+google-cloud-bigquery
+requests
+beautifulsoup4
+google-cloud-storage
+gspread
