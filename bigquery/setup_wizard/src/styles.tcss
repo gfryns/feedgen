@@ -1,0 +1,96 @@
+/* Main App Styles */
+#sidebar {
+    width: 40;
+    background: $surface;
+    border-right: tall $primary;
+    padding: 1;
+}
+
+#sidebar-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#main-content {
+    padding: 2;
+}
+
+ListItem {
+    padding: 1;
+}
+
+/* Common Screen Styles */
+#form-container {
+    padding: 2;
+}
+
+#title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#form-container Input, #form-container Select {
+    margin-bottom: 1;
+}
+
+#form-container Button {
+    margin-right: 1;
+    margin-top: 1;
+}
+
+Collapsible {
+    margin-top: 1;
+}
+
+#loading {
+    display: none;
+    height: 1;
+    margin-top: 1;
+}
+
+#status-label {
+    margin-top: 1;
+    text-style: bold;
+}
+
+#process-logs {
+    height: 10;
+    background: $surface;
+    margin-top: 1;
+}
+
+#copy-logs-btn {
+    margin-top: 1;
+}
+
+.col {
+    width: 50%;
+    padding: 0 1;
+}
+
+.col3 {
+    width: 33%;
+    padding: 0 1;
+}
+
+#progress-bar {
+    display: none;
+    margin-top: 1;
+}
+
+/* Specific Screen Styles */
+#custom-model { display: none; margin-top: 1; }
+#info-summary { margin-top: 1; }
+#examples-table { height: 8; margin-top: 1; border: solid $primary; }
+#gmc-tip { margin-top: 1; margin-bottom: 1; text-style: italic; }
+#bucket-info { margin-top: 1; text-style: italic; }
+#actions-container { margin-top: 1; }
+.method-container { display: none; margin-top: 1; }
+#sheet-fields-row { align-vertical: bottom; }
+#examples-tip { margin-top: 1; margin-bottom: 1; text-style: italic; }
+#examples-preview { height: 9; margin-top: 1; border: solid $primary; }
+#gen-row-1 { align-vertical: bottom; margin-bottom: 1; }
+#gen-row-2 { align-vertical: bottom; margin-top: 1; }
+#table-col { width: 70%; padding: 0 1; }
+#workers-col { width: 30%; padding: 0 1; }

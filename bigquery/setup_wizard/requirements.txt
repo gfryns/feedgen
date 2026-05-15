@@ -1,0 +1,11 @@
+textual
+google-cloud-bigquery
+google-cloud-service-usage
+google-cloud-bigquery-connection
+google-cloud-resource-manager
+beautifulsoup4
+requests
+pyyaml
+gspread
+google-auth
+certifi
