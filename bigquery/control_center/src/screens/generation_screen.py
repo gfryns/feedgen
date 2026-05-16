@@ -238,7 +238,23 @@ class GenerationScreen(ControlCenterBaseScreen):
             self.write_log(f"Creating table {input_proc_id}...\n")
             client.query(sql_input).result()
             
-            output_id = f"{project}.{dataset}.Output"
+            output_id = f"{project}.{dataset}.{output_table}"
+            
+            # Re-deploy procedures for specific output table
+            self.write_log(f"Configuring generation for destination table `{output_id}`...\n")
+            with open("generation.sql", "r") as f:
+                gen_sql = f.read()
+            with open("prompts/titles.txt", "r") as f:
+                titles_prompt = f.read()
+            with open("prompts/descriptions.txt", "r") as f:
+                descriptions_prompt = f.read()
+                
+            gen_sql = gen_sql.replace("[DATASET]", f"{project}.{dataset}")
+            gen_sql = gen_sql.replace("[OUTPUT_TABLE]", output_id)
+            gen_sql = gen_sql.replace("-- TITLES_PROMPT", titles_prompt)
+            gen_sql = gen_sql.replace("-- DESCRIPTIONS_PROMPT", descriptions_prompt)
+            
+            client.query(gen_sql).result()
             
             sql_output = f"""
             CREATE OR REPLACE TABLE `{output_id}` AS
@@ -253,7 +269,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             FROM `{source_id}`;
             """
             
-            self.write_log(f"Initializing working table {output_id}...\n")
+            self.write_log(f"Initializing output table {output_id}...\n")
             client.query(sql_output).result()
             
             self.state.set_step_status('prepare', 'Completed')
@@ -307,12 +323,44 @@ class GenerationScreen(ControlCenterBaseScreen):
                     
                 all_done = False
                 while not all_done:
+                    if self.app._exit:
+                        self.write_log("App is shutting down. Cancelling active BigQuery jobs...\n")
+                        for job in jobs:
+                            if not job.done():
+                                try:
+                                    job.cancel()
+                                except Exception:
+                                    pass
+                        return
+
                     all_done = True
-                    for job in jobs:
+                    has_error = False
+                    for i, job in enumerate(jobs):
                         job.reload()
                         if not job.done():
                             all_done = False
+                        elif job.exception():
+                            error_msg = str(job.exception()).lower()
+                            if "too many concurrent queries" in error_msg or "rate limit" in error_msg or "exceeded rate limits" in error_msg:
+                                self.write_log(f"Rate limit hit for worker {i}. Retrying after a short delay...\n")
+                                for _ in range(15):
+                                    if self.app._exit:
+                                        break
+                                    time.sleep(1)
+                                if self.app._exit:
+                                    return
+                                jobs[i] = client.query(job.query)
+                                all_done = False
+                            else:
+                                self.write_log(f"ERROR in job: {job.exception()}\n")
+                                has_error = True
+                                all_done = True
+                                break
                             
+                    if has_error:
+                        self.write_log("Generation failed due to an error. Stopping.\n")
+                        return
+
                     try:
                         processed_rows = list(client.query(processed_query).result())[0].processed
                         self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, progress=processed_rows)
@@ -320,15 +368,12 @@ class GenerationScreen(ControlCenterBaseScreen):
                         pass
                         
                     if not all_done:
-                        time.sleep(5)
+                        for _ in range(5):
+                            if self.app._exit:
+                                break
+                            time.sleep(1)
                         
                 self.write_log(f"Finished generation for {target}.\n")
-                
-            # 3. Finalize output table
-            if output_table != "Output":
-                final_id = f"{project}.{dataset}.{output_table}"
-                self.write_log(f"Copying results to final table {final_id}...\n")
-                client.query(f"CREATE OR REPLACE TABLE `{final_id}` AS SELECT * FROM `{output_id}`").result()
             
             self.state.set_step_status('gen', 'Completed')
             self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")

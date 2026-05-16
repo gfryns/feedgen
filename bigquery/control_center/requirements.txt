@@ -5,7 +5,7 @@ google-cloud-bigquery-connection
 google-cloud-resource-manager
 google-cloud-storage
 beautifulsoup4
-pyOpenSSL
+pyOpenSSL<26.2.0
 requests
 pyyaml
 gspread

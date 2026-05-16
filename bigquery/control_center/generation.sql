@@ -91,7 +91,7 @@ BEGIN
   LOOP
     IF (
       SELECT COUNT(*) = 0 AND IDS IS NULL
-      FROM `[DATASET]`.Output
+      FROM `[OUTPUT_TABLE]`
       WHERE title IS NULL AND tries < 3
         AND (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
     ) THEN LEAVE;
@@ -102,14 +102,14 @@ BEGIN
     WITH
       Input AS (
         SELECT id, TO_JSON_STRING(I) AS properties, I.image_url
-        FROM `[DATASET]`.Output AS O
+        FROM `[OUTPUT_TABLE]` AS O
         INNER JOIN `[DATASET]`.InputProcessing AS I USING (id)
         WHERE (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
           AND IF(IDS IS NOT NULL,
             O.id IN UNNEST(IDS),
             O.title IS NULL AND O.tries < 3)
         ORDER BY RAND()
-        LIMIT 600
+        LIMIT 150
       )
     SELECT
       [id] AS ids,
@@ -131,24 +131,29 @@ BEGIN
 
     -- Debug: Save raw response or error status for all IDs in batch
     IF DEBUG THEN
-      UPDATE `[DATASET]`.Output AS O
+      UPDATE `[OUTPUT_TABLE]` AS O
       SET O.raw_response_title = IFNULL(G.output, CONCAT("ERROR: ", G.status))
       FROM Generated AS G
       WHERE O.id IN UNNEST(G.ids);
     END IF;
 
     -- Store generated titles in output feed
-    MERGE `[DATASET]`.Output AS O
+    MERGE `[OUTPUT_TABLE]` AS O
     USING (
       WITH Extracted AS (
         SELECT
-          REGEXP_EXTRACT(block, r'(?i)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)') AS id,
-          REGEXP_EXTRACT(block, r'(?i)(?:\*\*|\*)*\s*generated title\s*:\s*(?:\*\*|\*)*\s*([^\n]+)') AS title
+          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS id,
+          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*generated title\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS title
         FROM Generated,
-        UNNEST(REGEXP_EXTRACT_ALL(output, r'(?is)(?:\*\*|\*)*\s*id\s*:[^\n]+.*?(?:\*\*|\*)*\s*generated title\s*:[^\n]+')) AS block
+        UNNEST(REGEXP_EXTRACT_ALL(output, r"(?is)(?:\*\*|\*)*\s*id\s*:.*?generated title\s*:.*?(?:\n\s*(?:\*\*|\*)*\s*id\s*:|$)")) AS block
+      ),
+      RequestedIds AS (
+        SELECT id FROM Generated, UNNEST(ids) AS id
       )
-      SELECT id, title FROM Extracted
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY id) = 1 AND id IS NOT NULL
+      SELECT R.id, E.title 
+      FROM RequestedIds AS R
+      LEFT JOIN Extracted AS E ON R.id = E.id
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY R.id) = 1 AND R.id IS NOT NULL
     ) AS G
       ON O.id = G.id
     WHEN MATCHED THEN UPDATE SET
@@ -180,7 +185,7 @@ BEGIN
   LOOP
     IF (
       SELECT COUNT(*) = 0 AND IDS IS NULL
-      FROM `[DATASET]`.Output
+      FROM `[OUTPUT_TABLE]`
       WHERE description IS NULL AND tries < 3
         AND (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
     ) THEN LEAVE;
@@ -191,14 +196,14 @@ BEGIN
     WITH
       Input AS (
         SELECT id, TO_JSON_STRING(I) AS properties, I.image_url
-        FROM `[DATASET]`.Output AS O
+        FROM `[OUTPUT_TABLE]` AS O
         INNER JOIN `[DATASET]`.InputProcessing AS I USING (id)
         WHERE (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
           AND IF(IDS IS NOT NULL,
             O.id IN UNNEST(IDS),
             O.description IS NULL AND O.tries < 3)
         ORDER BY RAND()
-        LIMIT 600
+        LIMIT 150
       )
     SELECT
       [id] AS ids,
@@ -220,30 +225,36 @@ BEGIN
 
     -- Debug: Save raw response or error status for all IDs in batch
     IF DEBUG THEN
-      UPDATE `[DATASET]`.Output AS O
+      UPDATE `[OUTPUT_TABLE]` AS O
       SET O.raw_response_description = IFNULL(G.output, CONCAT("ERROR: ", G.status))
       FROM Generated AS G
       WHERE O.id IN UNNEST(G.ids);
     END IF;
 
     -- Store generated descriptions in output feed
-    MERGE `[DATASET]`.Output AS O
+    MERGE `[OUTPUT_TABLE]` AS O
     USING (
       WITH Extracted AS (
         SELECT
-          REGEXP_EXTRACT(block, r'(?i)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)') AS id,
-          REGEXP_EXTRACT(block, r'(?is)(?:\*\*|\*)*\s*generated description\s*:\s*(?:\*\*|\*)*\s*(.*?)(?:\n\s*(?:\*\*|\*)*\s*score:|$)') AS description
+          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS id,
+          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*generated description\s*:\s*(?:\*\*|\*)*\s*(.*?)(?:\n\s*(?:\*\*|\*)*\s*score:|$)") AS description
         FROM Generated,
-        UNNEST(REGEXP_EXTRACT_ALL(output, r'(?is)(?:\*\*|\*)*\s*id\s*:[^\n]+.*?(?:\*\*|\*)*\s*score\s*:[^\n]+')) AS block
+        UNNEST(REGEXP_EXTRACT_ALL(output, r"(?is)(?:\*\*|\*)*\s*id\s*:.*?score\s*:\s*\d+")) AS block
+      ),
+      RequestedIds AS (
+        SELECT id FROM Generated, UNNEST(ids) AS id
       )
-      SELECT id, description FROM Extracted
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY id) = 1 AND id IS NOT NULL
+      SELECT R.id, E.description 
+      FROM RequestedIds AS R
+      LEFT JOIN Extracted AS E ON R.id = E.id
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY R.id) = 1 AND R.id IS NOT NULL
     ) AS G
       ON O.id = G.id
     WHEN MATCHED THEN UPDATE SET
       O.description = IFNULL(G.description, O.description),
       O.tries = O.tries + 1,
       O.updated_at = CURRENT_TIMESTAMP();
+
 
     IF IDS IS NOT NULL THEN LEAVE;
     END IF;

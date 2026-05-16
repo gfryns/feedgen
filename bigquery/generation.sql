@@ -96,7 +96,7 @@ BEGIN
   LOOP
     IF (
       SELECT COUNT(*) = 0 AND IDS IS NULL
-      FROM `[DATASET]`.Output
+      FROM `[OUTPUT_TABLE]`
       WHERE title IS NULL AND tries < 3
         AND (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
     ) THEN LEAVE;
@@ -107,7 +107,7 @@ BEGIN
     WITH
       Input AS (
         SELECT id, TO_JSON_STRING(I) AS properties
-        FROM `[DATASET]`.Output AS O
+        FROM `[OUTPUT_TABLE]` AS O
         INNER JOIN `[DATASET]`.InputProcessing AS I USING (id)
         WHERE (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
           AND IF(IDS IS NOT NULL,
@@ -140,7 +140,7 @@ BEGIN
           TRUE AS flatten_json_output));
 
     -- Store generated titles in output feed
-    MERGE `[DATASET]`.Output AS O
+    MERGE `[OUTPUT_TABLE]` AS O
     USING (
       SELECT
         COALESCE(REGEXP_EXTRACT(output, r'^([^:]+): .*'), REGEXP_EXTRACT(output, r'^([^:]+)$')) AS id,
@@ -175,7 +175,7 @@ BEGIN
   LOOP
     IF (
       SELECT COUNT(*) = 0 AND IDS IS NULL
-      FROM `[DATASET]`.Output
+      FROM `[OUTPUT_TABLE]`
       WHERE description IS NULL AND tries < 3
         AND (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
     ) THEN LEAVE;
@@ -186,7 +186,7 @@ BEGIN
     WITH
       Input AS (
         SELECT id, TO_JSON_STRING(I) AS properties
-        FROM `[DATASET]`.Output AS O
+        FROM `[OUTPUT_TABLE]` AS O
         INNER JOIN `[DATASET]`.InputProcessing AS I USING (id)
         WHERE (PARTS IS NULL OR ABS(MOD(FARM_FINGERPRINT(id), PARTS)) = PART)
           AND IF(IDS IS NOT NULL,
@@ -219,7 +219,7 @@ BEGIN
           TRUE AS flatten_json_output));
 
     -- Store generated descriptions in output feed
-    MERGE `[DATASET]`.Output AS O
+    MERGE `[OUTPUT_TABLE]` AS O
     USING (
       SELECT
         COALESCE(REGEXP_EXTRACT(output, r'^([^:]+): .*'), REGEXP_EXTRACT(output, r'^([^:]+)$')) AS id,

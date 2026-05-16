@@ -86,7 +86,8 @@ def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str
     with open("prompts/descriptions.txt", "r") as f:
         descriptions_prompt = f.read()
         
-    gen_sql = gen_sql.replace("[DATASET]", dataset_val)
+    gen_sql = gen_sql.replace("[DATASET]", f"{project_val}.{dataset_val}")
+    gen_sql = gen_sql.replace("[OUTPUT_TABLE]", f"{project_val}.{dataset_val}.Output")
     gen_sql = gen_sql.replace("-- TITLES_PROMPT", titles_prompt)
     gen_sql = gen_sql.replace("-- DESCRIPTIONS_PROMPT", descriptions_prompt)
 
