@@ -67,6 +67,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
             
         self.log_content = ""
         write_log("Starting web scraping...\n")
+        self.query_one("#status-label", Label).update("[bold]Scraping webpages...[/]")
         
         project = self.state.get('project')
         dataset = self.state.get('dataset')
@@ -88,34 +89,38 @@ class ScrapingScreen(ControlCenterBaseScreen):
             csv_filename = "ids_contents.csv"
             self.write_log(f"Found {len(results)} rows. Scraping pages...\n")
             
-            self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, total=len(results), progress=0)
+            self.query_one("#progress-bar", ProgressBar).update(total=len(results), progress=0)
             
-            def do_scraping():
-                total = len(results)
-                success = 0
-                extracted = 0
-                failed = 0
+            import aiohttp
+            import csv
+            from bs4 import BeautifulSoup
+            
+            total = len(results)
+            success = 0
+            extracted = 0
+            failed = 0
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            
+            semaphore = asyncio.Semaphore(20) # Max 20 concurrent requests
+            
+            async def fetch_and_parse(session, row):
+                nonlocal success, extracted, failed
+                item_id = row['id']
+                url = row['url']
+                content = ""
                 
-                with open(csv_filename, mode='w', newline='', encoding='utf-8') as csv_file:
-                    fieldnames = ['id', 'content']
-                    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-                    
-                    headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                    
-                    for row in results:
-                        item_id = row['id']
-                        url = row['url']
-                        
-                        content = ""
-                        try:
-                            time.sleep(0.5)
-                            response = requests.get(url, headers=headers, timeout=10)
+                async with semaphore:
+                    if self.app._exit: return item_id, content
+                    try:
+                        async with session.get(url, headers=headers, timeout=15) as response:
                             response.raise_for_status()
+                            html = await response.text()
                             success += 1
                             
-                            soup = BeautifulSoup(response.content, 'html.parser')
+                            soup = BeautifulSoup(html, 'html.parser')
                             elements = soup.select(selector)
                             content = " ".join(el.get_text() for el in elements)
                             
@@ -126,24 +131,35 @@ class ScrapingScreen(ControlCenterBaseScreen):
                                 extracted += 1
                             else:
                                 failed += 1
-                                
-                        except Exception as e:
-                            failed += 1
-                            content = ""
-                            
-                        writer.writerow({'id': item_id, 'content': content})
-                        self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).advance, 1)
+                    except Exception as e:
+                        failed += 1
                         
-                return {
-                    'total': total,
-                    'success': success,
-                    'extracted': extracted,
-                    'failed': failed
-                }
+                    self.query_one("#progress-bar", ProgressBar).advance(1)
+                    return item_id, content
+                    
+            async with aiohttp.ClientSession() as session:
+                tasks = [fetch_and_parse(session, row) for row in results]
+                parsed_results = await asyncio.gather(*tasks)
                 
-            metrics = await loop.run_in_executor(None, do_scraping)
+            if self.app._exit:
+                self.write_log("Scraping cancelled.\n")
+                return
+
+            with open(csv_filename, mode='w', newline='', encoding='utf-8') as csv_file:
+                fieldnames = ['id', 'content']
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                for item_id, content in parsed_results:
+                    writer.writerow({'id': item_id, 'content': content})
+
+            metrics = {
+                'total': total,
+                'success': success,
+                'extracted': extracted,
+                'failed': failed
+            }
             
             self.write_log("Loading data to BigQuery...\n")
+            self.query_one("#status-label", Label).update("[bold]Loading data to BigQuery...[/]")
             
             from google.cloud import bigquery
             

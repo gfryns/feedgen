@@ -6,6 +6,7 @@ google-cloud-resource-manager
 google-cloud-storage
 beautifulsoup4
 pyOpenSSL<26.2.0
+aiohttp
 requests
 pyyaml
 gspread

@@ -140,24 +140,40 @@ class ImagesScreen(ControlCenterBaseScreen):
             self.notify(f"Error creating bucket: {e}", severity="error")
             
     async def delete_images(self, bucket_name: str) -> None:
+        self.query_one("#status-label", Label).update("[bold]Deleting images...[/]")
         self.notify("Deleting images...")
+        self.query_one("#progress-bar").styles.display = "block"
         try:
             storage_client = storage.Client(project=self.state.get('project'))
             bucket = storage_client.get_bucket(bucket_name)
             
             loop = asyncio.get_running_loop()
             
+            # Fetch blobs first to get total
+            def get_blobs():
+                return list(bucket.list_blobs(prefix="feedgen_images/"))
+            blobs_list = await loop.run_in_executor(None, get_blobs)
+            total_blobs = len(blobs_list)
+            
+            self.query_one("#progress-bar").update(total=total_blobs, progress=0)
+            
             def do_delete():
-                blobs = bucket.list_blobs(prefix="feedgen_images/")
+                from google.api_core.exceptions import NotFound
                 count = 0
-                for blob in blobs:
-                    blob.delete()
-                    count += 1
+                for blob in blobs_list:
+                    if self.app._exit: return count
+                    try:
+                        blob.delete()
+                        count += 1
+                    except NotFound:
+                        pass
+                    self.app.call_from_thread(self.query_one("#progress-bar").advance, 1)
                 return count
                 
             count = await loop.run_in_executor(None, do_delete)
             
             self.notify(f"Deleted {count} images!", severity="information")
+            self.query_one("#status-label", Label).update(f"[green]Done! Deleted {count} images.[/]")
             
             project = self.state.get('project')
             dataset = self.state.get('dataset')
@@ -173,6 +189,7 @@ class ImagesScreen(ControlCenterBaseScreen):
             self.notify(f"Error deleting images: {e}", severity="error")
             
     def run_images(self, bucket_name: str) -> None:
+        self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Processing images...[/]")
         """Runs in a background thread (sync worker)."""
         self.log_content = ""
         self.write_log("Starting image processing...\n")
@@ -194,7 +211,14 @@ class ImagesScreen(ControlCenterBaseScreen):
             urls = [row['image_url'] for row in results]
             self.write_log(f"Found {len(urls)} unique image URLs.\n")
             
-            self.write_log("Processing images sequentially...\n")
+            self.write_log("Analyzing existing images in bucket...\n")
+            
+            # Cache existing blobs to avoid re-uploading
+            existing_blobs = set()
+            for b in bucket.list_blobs(prefix="feedgen_images/"):
+                existing_blobs.add(b.name)
+            
+            self.write_log(f"Found {len(existing_blobs)} existing images. Processing remaining...\n")
             
             # Reset progress bar to 0 and set total
             self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, total=len(urls), progress=0)
@@ -204,20 +228,26 @@ class ImagesScreen(ControlCenterBaseScreen):
             }
             
             success_count = 0
+            skipped_count = 0
             
-            for url in urls:
+            import concurrent.futures
+            import hashlib
+            
+            def process_image(url):
+                if self.app._exit: return False, "cancelled", "" 
+                
                 filename = url.split('/')[-1]
                 if not filename or '?' in filename:
-                    import hashlib
                     filename = f"image_{hashlib.md5(url.encode()).hexdigest()}.jpg"
                     
-                blob = bucket.blob(f"feedgen_images/{filename}")
+                blob_path = f"feedgen_images/{filename}"
                 
-                self.write_log(f"Downloading: {url}\n")
-                
-                try:
-                    time.sleep(0.2) # Politeness
+                # Check cache
+                if blob_path in existing_blobs:
+                    return True, "skipped", filename
                     
+                blob = bucket.blob(blob_path)
+                try:
                     if insecure:
                         response = requests.get(url, headers=headers, stream=True, timeout=10, verify=False)
                     else:
@@ -225,14 +255,32 @@ class ImagesScreen(ControlCenterBaseScreen):
                         
                     response.raise_for_status()
                     blob.upload_from_file(response.raw, content_type=response.headers.get('Content-Type', 'image/jpeg'))
-                    success_count += 1
-                    self.write_log(f"Success: {filename}\n")
+                    return True, "uploaded", filename
                 except Exception as e:
-                    self.write_log(f"Error {url}: {e}\n")
+                    return False, f"Error {url}: {e}", filename
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                future_to_url = {executor.submit(process_image, url): url for url in urls}
+                for future in concurrent.futures.as_completed(future_to_url):
+                    if self.app._exit:
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        self.write_log("App is shutting down. Cancelling image downloads...\n")
+                        return
                     
-                self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).advance, 1)
+                    success, status, filename = future.result()
+                    if success:
+                        if status == "skipped":
+                            skipped_count += 1
+                        else:
+                            success_count += 1
+                            self.write_log(f"Success: uploaded {filename}\n")
+                    else:
+                        if status != "cancelled":
+                            self.write_log(f"{status}\n")
                     
-            self.write_log(f"Successfully processed {success_count}/{len(urls)} images.\n")
+                    self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).advance, 1)
+                    
+            self.write_log(f"Finished: {success_count} uploaded, {skipped_count} skipped.\n")
             
             self.write_log("Creating external table in BigQuery...\n")
             
