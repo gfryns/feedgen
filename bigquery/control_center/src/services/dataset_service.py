@@ -4,7 +4,7 @@ from google.cloud import resourcemanager_v3
 from google.iam.v1 import policy_pb2
 from services.bq_client import get_bq_client
 
-def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str, connection_val: str, model_val: str, insecure: bool, log_cb=print):
+def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str, connection_val: str, model_val: str, insecure: bool, titles_prompt_path: str = "prompts/titles.txt", desc_prompt_path: str = "prompts/descriptions.txt", log_cb=print):
     """Creates the dataset, connection, model, IAM bindings, and routines."""
     client = get_bq_client(project_val, insecure)
     
@@ -81,9 +81,9 @@ def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str
     with open("generation.sql", "r") as f:
         gen_sql = f.read()
         
-    with open("prompts/titles.txt", "r") as f:
+    with open(titles_prompt_path, "r") as f:
         titles_prompt = f.read()
-    with open("prompts/descriptions.txt", "r") as f:
+    with open(desc_prompt_path, "r") as f:
         descriptions_prompt = f.read()
         
     gen_sql = gen_sql.replace("[DATASET]", f"{project_val}.{dataset_val}")

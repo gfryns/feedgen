@@ -43,6 +43,18 @@ class DatasetScreen(ControlCenterBaseScreen):
             # Fallbacks just in case
             self.regions = [("EU", "EU"), ("US", "US")]
             self.models = [("Gemini 2.5 Flash", "gemini-2.5-flash")]
+            self.prompt_titles = "prompts/titles.txt"
+            self.prompt_descriptions = "prompts/descriptions.txt"
+            
+        try:
+            with open('config.yaml', 'r') as f:
+                config = yaml.safe_load(f)
+                prompts_config = config.get('prompts', {})
+                self.prompt_titles = prompts_config.get('titles', 'prompts/titles.txt')
+                self.prompt_descriptions = prompts_config.get('descriptions', 'prompts/descriptions.txt')
+        except Exception:
+            self.prompt_titles = "prompts/titles.txt"
+            self.prompt_descriptions = "prompts/descriptions.txt"
         
     def compose(self) -> ComposeResult:
         yield Header()
@@ -158,7 +170,7 @@ class DatasetScreen(ControlCenterBaseScreen):
             await loop.run_in_executor(
                 None, 
                 lambda: deploy_dataset_and_model(
-                    project_val, dataset_val, region_val, connection_val, model_val, insecure, self.write_log
+                    project_val, dataset_val, region_val, connection_val, model_val, insecure, self.prompt_titles, self.prompt_descriptions, self.write_log
                 )
             )
 

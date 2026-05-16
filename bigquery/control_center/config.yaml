@@ -43,3 +43,7 @@ models:
     value: "gemini-2.5-flash"
   - label: "Other (Enter manually)"
     value: "other"
+
+prompts:
+  titles: "prompts/titles.txt"
+  descriptions: "prompts/descriptions.txt"

@@ -242,11 +242,24 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             # Re-deploy procedures for specific output table
             self.write_log(f"Configuring generation for destination table `{output_id}`...\n")
+            
+            prompt_titles_path = "prompts/titles.txt"
+            prompt_desc_path = "prompts/descriptions.txt"
+            try:
+                import yaml
+                with open('config.yaml', 'r') as f:
+                    config = yaml.safe_load(f)
+                    prompts_config = config.get('prompts', {})
+                    prompt_titles_path = prompts_config.get('titles', prompt_titles_path)
+                    prompt_desc_path = prompts_config.get('descriptions', prompt_desc_path)
+            except Exception:
+                pass
+                
             with open("generation.sql", "r") as f:
                 gen_sql = f.read()
-            with open("prompts/titles.txt", "r") as f:
+            with open(prompt_titles_path, "r") as f:
                 titles_prompt = f.read()
-            with open("prompts/descriptions.txt", "r") as f:
+            with open(prompt_desc_path, "r") as f:
                 descriptions_prompt = f.read()
                 
             gen_sql = gen_sql.replace("[DATASET]", f"{project}.{dataset}")
@@ -294,8 +307,12 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             self.app.call_from_thread(self.state.set, 'gen_count', total_rows)
             
-            for target in targets:
+            total_targets = len(targets)
+            for step_idx, target in enumerate(targets):
                 self.write_log(f"\n--- Generating {target} ---\n")
+                
+                step_text = f"Step {step_idx + 1}/{total_targets}: Generating {target}..."
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[bold]{step_text}[/]")
                 self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, total=total_rows, progress=0)
                 
                 procedure = f"BatchedUpdate{target}"
@@ -314,6 +331,13 @@ class GenerationScreen(ControlCenterBaseScreen):
                         self.write_log(f"Starting worker {part}/{workers}: {sql}\n")
                         job = client.query(sql)
                         jobs.append(job)
+                        
+                        # Stagger worker start times to avoid hitting BigQuery/Vertex concurrent limits immediately
+                        if part < workers - 1:
+                            for _ in range(5):
+                                if self.app._exit:
+                                    return
+                                time.sleep(1)
                         
                 # Polling for progress
                 if target == 'Titles':
@@ -341,8 +365,8 @@ class GenerationScreen(ControlCenterBaseScreen):
                             all_done = False
                         elif job.exception():
                             error_msg = str(job.exception()).lower()
-                            if "too many concurrent queries" in error_msg or "rate limit" in error_msg or "exceeded rate limits" in error_msg:
-                                self.write_log(f"Rate limit hit for worker {i}. Retrying after a short delay...\n")
+                            if "too many concurrent queries" in error_msg or "rate limit" in error_msg or "exceeded rate limits" in error_msg or "could not serialize access" in error_msg or "concurrent update" in error_msg:
+                                self.write_log(f"Concurrency/Rate limit hit for worker {i}. Retrying after a short delay...\n")
                                 for _ in range(15):
                                     if self.app._exit:
                                         break
