@@ -12,7 +12,7 @@ class LogMessage(Message):
         self.text = text
         super().__init__()
 
-class WizardBaseScreen(Screen):
+class ControlCenterBaseScreen(Screen):
     """Base screen class providing common setup, logging, and callbacks."""
     
     def __init__(self, state):

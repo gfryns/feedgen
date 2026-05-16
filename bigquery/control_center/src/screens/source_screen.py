@@ -1,12 +1,12 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Static, DataTable
 from textual.containers import Vertical, Horizontal
 from screens.dataset_screen import get_bq_client
 import re
 import asyncio
 
-class SourceScreen(WizardBaseScreen):
+class SourceScreen(ControlCenterBaseScreen):
     """Screen for Step 3a: Source Table Setup."""
     
     def compose(self) -> ComposeResult:

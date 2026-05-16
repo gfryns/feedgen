@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar
 from textual.containers import Vertical, Horizontal
 from screens.dataset_screen import get_bq_client
@@ -10,7 +10,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
-class ScrapingScreen(WizardBaseScreen):
+class ScrapingScreen(ControlCenterBaseScreen):
     """Screen for Step 3c: Web Scraping."""
     
     def __init__(self, state):

@@ -3,7 +3,7 @@ import os
 
 STATE_FILE = "state.json"
 
-class WizardStateManager:
+class ControlCenterStateManager:
     def __init__(self, filename=STATE_FILE):
         self.filename = filename
         self.data = self._load_state()
@@ -20,7 +20,8 @@ class WizardStateManager:
             'images': ['dataset', 'filter'],
             'examples': ['dataset', 'filter'],
             'prepare': ['dataset', 'filter'],
-            'gen': ['filter', 'procedures']
+            'gen': ['filter', 'procedures'],
+            'export': ['gen']
         }
         
         # Build reverse graph (who depends on whom) once at startup

@@ -1,12 +1,12 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, LoadingIndicator, Log
 from textual.containers import Vertical, Horizontal
 from validators import is_valid_project_id
 import asyncio
 import subprocess
 
-class ProjectScreen(WizardBaseScreen):
+class ProjectScreen(ControlCenterBaseScreen):
     """Screen for Cloud Project Setup."""
     
     def compose(self) -> ComposeResult:

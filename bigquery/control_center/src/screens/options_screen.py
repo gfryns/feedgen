@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Select, Collapsible, Log
 from textual.containers import Vertical, Horizontal, Container
 from screens.dataset_screen import get_bq_client
@@ -7,7 +7,7 @@ import asyncio
 import re
 import subprocess
 
-class OptionsScreen(WizardBaseScreen):
+class OptionsScreen(ControlCenterBaseScreen):
     """Screen for Step 3b: Filtering Options."""
     
     def compose(self) -> ComposeResult:

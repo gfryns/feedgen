@@ -2,7 +2,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label, ListView, ListItem, DataTable
 from textual.containers import Horizontal, Vertical, Container
 from textual import on
-from state_manager import WizardStateManager
+from state_manager import ControlCenterStateManager
 from screens.project_screen import ProjectScreen
 from screens.dataset_screen import DatasetScreen
 from screens.source_screen import SourceScreen
@@ -11,10 +11,11 @@ from screens.scraping_screen import ScrapingScreen
 from screens.images_screen import ImagesScreen
 from screens.examples_screen import ExamplesScreen
 from screens.generation_screen import GenerationScreen
+from screens.export_screen import ExportScreen
 from action_logger import log_action
 
-class WizardApp(App):
-    """A Textual app for the FeedGen Setup Wizard."""
+class ControlCenterApp(App):
+    """A Textual app for the FeedGen Control Center."""
     TITLE = "FeedGen"
     
     CSS_PATH = "styles.tcss"
@@ -39,6 +40,7 @@ class WizardApp(App):
                     yield ListItem(Static("   3d. Import Product Images", markup=True), id="images")
                     yield ListItem(Static("   3e. Select Examples", markup=True), id="examples")
                     yield ListItem(Static("4. Generation options", markup=True), id="gen")
+                    yield ListItem(Static("5. Export to GMC", markup=True), id="export")
             with Container(id="main-content"):
                 yield Static(self.get_art(), id="dashboard-art", markup=True)
                 yield Label("--- Dashboard ---", id="dashboard-title", classes="bold")
@@ -50,7 +52,7 @@ class WizardApp(App):
         import sys
         import os
         
-        self.state = WizardStateManager()
+        self.state = ControlCenterStateManager()
         self.state.debug = '--debug' in sys.argv
         
         if self.state.debug:
@@ -111,7 +113,8 @@ class WizardApp(App):
             'web': "   3c. Import Product Pages Infos",
             'images': "   3d. Import Product Images",
             'examples': "   3e. Select Examples",
-            'gen': "4. Generation options"
+            'gen': "4. Generation options",
+            'export': "5. Export to GMC"
         }
         
         for step, base_text in base_texts.items():
@@ -168,7 +171,8 @@ class WizardApp(App):
             ('web', '3c. Import Product Pages', f"Selector: {state.get('selector', 'N/A')}"),
             ('images', '3d. Import Product Images', f"Bucket: {state.get('bucket', 'N/A')}"),
             ('examples', '3e. Select Examples', f"Sheet: {state.get('sheet_name', 'N/A')}"),
-            ('gen', '4. Generation options', f"Lang: {state.get('language', 'N/A')} | Out: {project}.{dataset}.{state.get('output_table', 'Output')} | Count: {state.get('gen_count', 'N/A')}")
+            ('gen', '4. Generation options', f"Lang: {state.get('language', 'N/A')} | Out: {project}.{dataset}.{state.get('output_table', 'Output')} | Count: {state.get('gen_count', 'N/A')}"),
+            ('export', '5. Export to GMC', f"Type: {state.get('feed_type', 'supplemental')} | Target: {project}.{dataset}.{state.get('export_table', 'ExportGMC')}")
         ]
         
         for step_id, title, details in steps_data:
@@ -205,6 +209,8 @@ class WizardApp(App):
             self.push_screen(ExamplesScreen(self.state), callback=self.on_config_screen_result)
         elif step_id == 'gen':
             self.push_screen(GenerationScreen(self.state), callback=self.on_config_screen_result)
+        elif step_id == 'export':
+            self.push_screen(ExportScreen(self.state), callback=self.on_config_screen_result)
         
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle step selection from the sidebar."""
@@ -223,5 +229,5 @@ class WizardApp(App):
         self.update_dashboard()
 
 if __name__ == "__main__":
-    app = WizardApp()
+    app = ControlCenterApp()
     app.run()

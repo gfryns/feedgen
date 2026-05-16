@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar, Select
 from textual.containers import Vertical, Horizontal
 from screens.dataset_screen import get_bq_client
@@ -7,7 +7,7 @@ import asyncio
 import time
 import subprocess
 
-class GenerationScreen(WizardBaseScreen):
+class GenerationScreen(ControlCenterBaseScreen):
     """Screen for Step 4: Generation Options."""
     
     def __init__(self, state):

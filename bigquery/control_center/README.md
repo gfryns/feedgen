@@ -1,8 +1,8 @@
-# FeedGen BigQuery Setup Wizard
+# FeedGen BigQuery Control Center
 
-The **FeedGen BigQuery Setup Wizard** is an interactive, terminal-based User Interface (TUI) designed to automate the deployment and configuration of an e-commerce feed generation pipeline on Google Cloud. 
+The **FeedGen BigQuery Control Center** is an interactive, terminal-based User Interface (TUI) designed to automate the deployment and configuration of an e-commerce feed generation pipeline on Google Cloud. 
 
-Using this wizard, digital marketers and data engineers can seamlessly deploy a BigQuery-native infrastructure to enhance product titles and descriptions using Google's Gemini Large Language Models (LLMs).
+Using this control center, digital marketers and data engineers can seamlessly deploy a BigQuery-native infrastructure to enhance product titles and descriptions using Google's Gemini Large Language Models (LLMs).
 
 ![Dashboard Preview](https://textual.textualize.io/images/logo.svg) *(Built with [Textual](https://textual.textualize.io/))*
 
@@ -27,7 +27,7 @@ Using this wizard, digital marketers and data engineers can seamlessly deploy a 
 .
 ├── src/                    # Application source code
 │   ├── app.py              # Main Textual application and Dashboard
-│   ├── screens/            # UI components for each wizard step
+│   ├── screens/            # UI components for each control center step
 │   ├── services/           # Decoupled business logic (BigQuery, IAM, Scraping)
 │   └── state_manager.py    # Atomic state saving/loading (state.json)
 ├── tests/                  # Pytest unit tests for business logic
@@ -39,7 +39,7 @@ Using this wizard, digital marketers and data engineers can seamlessly deploy a 
 
 ## 🛠️ Prerequisites
 
-Before running the wizard, ensure you have:
+Before running the control center, ensure you have:
 1. Python 3.11+ installed.
 2. A Google Cloud Project with billing enabled.
 3. Authenticated your local environment with Application Default Credentials (ADC):
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 
 ## 🚦 Usage
 
-Launch the setup wizard from the project root:
+Launch the control center from the project root:
 
 ```bash
 python src/app.py

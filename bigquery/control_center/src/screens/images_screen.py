@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, Checkbox, ProgressBar
 from textual.containers import Vertical, Horizontal, Container
 from screens.dataset_screen import get_bq_client
@@ -13,7 +13,7 @@ import time
 import ssl
 import certifi
 
-class ImagesScreen(WizardBaseScreen):
+class ImagesScreen(ControlCenterBaseScreen):
     """Screen for Step 3d: Image Processing."""
     
     def __init__(self, state):

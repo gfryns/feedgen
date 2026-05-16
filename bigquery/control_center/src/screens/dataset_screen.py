@@ -1,5 +1,5 @@
 from textual.app import ComposeResult
-from screens.base_screen import WizardBaseScreen
+from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, LoadingIndicator, Select
 from textual.containers import Vertical, Horizontal, Container
 from validators import is_valid_dataset_name
@@ -24,7 +24,7 @@ def get_bq_client(state):
     else:
         return bigquery.Client(project=project)
 
-class DatasetScreen(WizardBaseScreen):
+class DatasetScreen(ControlCenterBaseScreen):
     """Screen for Step 2: BigQuery Dataset Setup."""
     
     def __init__(self, state):
