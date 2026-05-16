@@ -10,6 +10,7 @@ Follow these rules strictly:
 5. **Length Constraints:** The generated description MUST be between 500 and 5000 characters long.
 6. **Formatting:** DO NOT use any Markdown syntax (no asterisks, bolding, hashes, or bullet points). Avoid special characters.
 7. **No Meta-References:** DO NOT mention that you are looking at an image, photo, or picture. Avoid phrases like "as seen in the image", "in the photo", or "the visual context suggests". Describe the product directly as if it is in front of you.
+8. **Full Translation:** You MUST fully translate all product specifications, terminology, materials, colors, and units of measurement (e.g., years, Jahre, months, cm, inches) into {{LANGUAGE}}. Do not leave untranslated artifacts in the final description UNLESS the term is a universally recognized brand name, standard industry term, or commonly used loanword in the target language.
 
 Once you have written the description, act as an expert copywriter critic. Evaluate your generated description based on the rules above and assign a score from 1 to 5:
 * 5 points: Accurate, well-structured, completely unique (not copied from context), integrates all data sources, 500+ characters, and no markdown/special characters.
