@@ -140,20 +140,13 @@ BEGIN
     -- Store generated titles in output feed
     MERGE `[OUTPUT_TABLE]` AS O
     USING (
-      WITH Extracted AS (
-        SELECT
-          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS id,
-          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*generated title\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS title
-        FROM Generated,
-        UNNEST(REGEXP_EXTRACT_ALL(output, r"(?is)(?:\*\*|\*)*\s*id\s*:.*?generated title\s*:.*?(?:\n\s*(?:\*\*|\*)*\s*id\s*:|$)")) AS block
-      ),
-      RequestedIds AS (
-        SELECT id FROM Generated, UNNEST(ids) AS id
-      )
-      SELECT R.id, E.title 
-      FROM RequestedIds AS R
-      LEFT JOIN Extracted AS E ON R.id = E.id
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY R.id) = 1 AND R.id IS NOT NULL
+      SELECT 
+        id, 
+        COALESCE(
+          REGEXP_EXTRACT(output, r"(?is)(?:\*\*|\*)*\s*generated title\s*:\s*(?:\*\*|\*)*\s*([^\n]+)"),
+          IF(output NOT LIKE "%generated title:%", output, NULL)
+        ) AS title
+      FROM Generated, UNNEST(ids) AS id
     ) AS G
       ON O.id = G.id
     WHEN MATCHED THEN UPDATE SET
@@ -234,20 +227,13 @@ BEGIN
     -- Store generated descriptions in output feed
     MERGE `[OUTPUT_TABLE]` AS O
     USING (
-      WITH Extracted AS (
-        SELECT
-          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*id\s*:\s*(?:\*\*|\*)*\s*([^\n]+)") AS id,
-          REGEXP_EXTRACT(block, r"(?is)(?:\*\*|\*)*\s*generated description\s*:\s*(?:\*\*|\*)*\s*(.*?)(?:\n\s*(?:\*\*|\*)*\s*score:|$)") AS description
-        FROM Generated,
-        UNNEST(REGEXP_EXTRACT_ALL(output, r"(?is)(?:\*\*|\*)*\s*id\s*:.*?score\s*:\s*\d+")) AS block
-      ),
-      RequestedIds AS (
-        SELECT id FROM Generated, UNNEST(ids) AS id
-      )
-      SELECT R.id, E.description 
-      FROM RequestedIds AS R
-      LEFT JOIN Extracted AS E ON R.id = E.id
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY R.id) = 1 AND R.id IS NOT NULL
+      SELECT 
+        id, 
+        COALESCE(
+          REGEXP_EXTRACT(output, r"(?is)(?:\*\*|\*)*\s*generated description\s*:\s*(?:\*\*|\*)*\s*(.*?)(?:\n\s*(?:\*\*|\*)*\s*score:|$)"),
+          IF(output NOT LIKE "%generated description:%", output, NULL)
+        ) AS description
+      FROM Generated, UNNEST(ids) AS id
     ) AS G
       ON O.id = G.id
     WHEN MATCHED THEN UPDATE SET
