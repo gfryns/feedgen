@@ -5,9 +5,9 @@ build/
 *.tgz
 .vscode
 .env
-bigquery/.install.conf
 .venv/
-bigquery/setup_wizard/config.json
 __pycache__
 .pytest_cache
 .coverage
+bigquery/.install.conf
+bigquery/control_center/state.json
