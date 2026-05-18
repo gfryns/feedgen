@@ -43,8 +43,8 @@ class ImagesScreen(ControlCenterBaseScreen):
                     yield Input(value=self.state.get('bucket', f"{self.state.get('project')}-images"), id="bucket")
                     
                     yield Label("Bucket Status: Loading...", id="bucket-info")
-                    
-                    yield Container(id="actions-container")
+                
+                yield Container(id="actions-container")
                 
                 yield Label("", id="status-label")
                 yield ProgressBar(id="progress-bar")
