@@ -70,10 +70,10 @@ class ProjectScreen(ControlCenterBaseScreen):
         self.log_content = "" # Clear previous logs
         
         try:
-            from services.project_service import enable_vertex_ai
+            from services.project_service import enable_apis
             loop = asyncio.get_running_loop()
             
-            await loop.run_in_executor(None, lambda: enable_vertex_ai(project_val, self.write_log))
+            await loop.run_in_executor(None, lambda: enable_apis(project_val, self.write_log))
                 
             self.query_one("#loading").styles.display = "none"
             self.query_one("#status-label").update("[green]Status: APIs enabled successfully![/]")

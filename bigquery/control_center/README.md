@@ -42,11 +42,18 @@ Using this control center, digital marketers and data engineers can seamlessly d
 Before running the control center, ensure you have:
 1. Python 3.11+ installed.
 2. A Google Cloud Project with billing enabled.
-3. Authenticated your local environment with Application Default Credentials (ADC):
+3. The [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed and initialized (used for project setup and API enablement).
+4. Authenticated your local environment with Application Default Credentials (ADC).
+
+   If you need to import examples from Google Sheets, use this command to include the necessary scopes:
+   ```bash
+   gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/cloud-platform
+   ```
+
+   Otherwise, the standard command is sufficient:
    ```bash
    gcloud auth application-default login
    ```
-   *(Note: Ensure you include the necessary scopes if importing examples from Google Sheets: `--scopes=https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/cloud-platform`)*
 
 ## 📦 Installation
 
