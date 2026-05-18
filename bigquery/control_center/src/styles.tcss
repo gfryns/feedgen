@@ -106,3 +106,17 @@ Collapsible {
 #gen-row-2 { align-vertical: bottom; margin-top: 1; }
 #table-col { width: 70%; padding: 0 1; }
 #workers-col { width: 30%; padding: 0 1; }
+
+#selector {
+    width: 1fr;
+    margin-bottom: 0;
+    height: 3;
+}
+#detect-selector-btn {
+    width: auto;
+    margin-top: 0;
+    height: 3;
+}
+#selector-row {
+    align-vertical: middle;
+}

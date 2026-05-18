@@ -12,3 +12,4 @@ pyyaml
 gspread
 google-auth
 certifi
+google-cloud-aiplatform

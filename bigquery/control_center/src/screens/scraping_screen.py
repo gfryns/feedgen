@@ -2,6 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar
 from textual.containers import Vertical, Horizontal, Container
+from textual import on
 from services.bq_client import get_bq_client
 import asyncio
 import csv
@@ -37,7 +38,9 @@ class ScrapingScreen(ControlCenterBaseScreen):
                     yield Label(f"Product Page URL Column: {url_col}")
                     
                     yield Label("CSS Selector for description:")
-                    yield Input(value=self.state.get('selector', 'div[data-testid^="item-description"]'), id="selector")
+                    with Horizontal(id="selector-row"):
+                        yield Input(value=self.state.get('selector', 'div[data-testid^="item-description"]'), id="selector")
+                        yield Button("Auto-detect", id="detect-selector-btn")
                 
                 with Horizontal():
                     yield Button("Run Scraping", variant="success", id="run-btn")
@@ -59,6 +62,107 @@ class ScrapingScreen(ControlCenterBaseScreen):
             self.query_one("#logs-collapsible").collapsed = False
             self.query_one("#progress-bar").styles.display = "block"
             self.run_worker(self.run_scraping(selector))
+        elif event.button.id == "detect-selector-btn":
+            self.run_worker(self.detect_selector)
+            
+
+            
+    async def detect_selector(self) -> None:
+        self.notify("Auto-detecting selector...")
+        
+        project = self.state.get('project')
+        dataset = self.state.get('dataset')
+        url_col = self.state.get('url_col')
+        
+        sample_count = 5 # Default value
+        
+        if sample_count < 1 or sample_count > 15:
+            self.notify("Sample size must be between 1 and 15. Using default of 5.", severity="warning")
+            sample_count = 5
+            
+        if not url_col or url_col == 'skip':
+            self.notify("No URL column mapped!", severity="error")
+            return
+            
+        try:
+            from services.bq_client import get_bq_client
+            client = get_bq_client(project)
+            source_table = "InputFiltered"
+            
+            # Fetch sample URLs
+            query = f"SELECT url FROM `{project}.{dataset}.{source_table}` WHERE url IS NOT NULL ORDER BY RAND() LIMIT {sample_count}"
+            loop = asyncio.get_running_loop()
+            results = await loop.run_in_executor(None, lambda: list(client.query(query).result()))
+            
+            if not results:
+                self.notify("No URLs found in the table!", severity="error")
+                return
+                
+            if len(results) < sample_count:
+                self.notify(f"Requested {sample_count} samples, but only found {len(results)} rows. Using all available.", severity="warning")
+                
+            urls = [row['url'] for row in results]
+            self.notify(f"Fetching {len(urls)} sample pages...")
+            
+            import aiohttp
+            from bs4 import BeautifulSoup
+            
+            cleaned_htmls = []
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                for url in urls:
+                    try:
+                        async with session.get(url, headers=headers, timeout=15) as response:
+                            response.raise_for_status()
+                            html = await response.text()
+                            
+                            # Clean HTML
+                            soup = BeautifulSoup(html, 'html.parser')
+                            for script in soup(["script", "style"]):
+                                script.decompose()
+                            cleaned_htmls.append(str(soup))
+                    except Exception as e:
+                        self.notify(f"Error fetching {url}: {e}", severity="warning")
+                        
+            if not cleaned_htmls:
+                self.notify("Failed to fetch any sample pages!", severity="error")
+                return
+                
+            self.notify("Calling Gemini to analyze HTML...")
+            
+            # Call Gemini
+            from google.cloud import aiplatform
+            from vertexai.generative_models import GenerativeModel
+            
+            aiplatform.init(project=project)
+            model = GenerativeModel("gemini-1.5-flash")
+            
+            # Construct prompt with all HTMLs
+            prompt = "You are an expert web scraper. Analyze the following HTML contents of product pages.\n"
+            prompt += f"Identify the CSS selector that consistently contains the product description across ALL {len(cleaned_htmls)} pages.\n"
+            prompt += "Return ONLY the CSS selector string (e.g., `.product-description` or `#desc`).\n"
+            prompt += "Do not include any other text, markdown, or explanation.\n\n"
+            
+            for i, html_content in enumerate(cleaned_htmls):
+                prompt += f"--- Page {i+1} ---\n{html_content[:30000]}\n\n"
+                
+            def call_gemini():
+                response = model.generate_content(prompt)
+                return response.text.strip()
+                
+            selector = await loop.run_in_executor(None, call_gemini)
+            
+            # Clean up response
+            selector = selector.replace('`', '').replace('"', '').replace("'", "").strip()
+            
+            self.query_one("#selector", Input).value = selector
+            self.notify(f"Suggested selector: {selector}", severity="information")
+            
+        except Exception as e:
+            self.notify(f"Error detecting selector: {e}", severity="error")
             
     async def run_scraping(self, selector: str) -> None:
         logs = self.query_one("#process-logs", Log)
