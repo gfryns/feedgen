@@ -4,8 +4,7 @@ from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, S
 from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
 import asyncio
-import json
-import uuid
+import services.examples_service as ex_srv
 
 class ExamplesScreen(ControlCenterBaseScreen):
     """Screen for Step 3e: Manage Examples."""
@@ -123,16 +122,14 @@ class ExamplesScreen(ControlCenterBaseScreen):
             
     async def load_examples_preview(self) -> None:
         try:
-            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
-            table_id = f"{project}.{dataset}.Examples"
-            
-            # Get count
-            count_query = f"SELECT COUNT(*) as total FROM `{table_id}`"
             loop = asyncio.get_running_loop()
-            count_res = await loop.run_in_executor(None, lambda: list(client.query(count_query).result()))
-            total_count = count_res[0]['total'] if count_res else 0
+            
+            total_count, preview_data = await loop.run_in_executor(
+                None, 
+                lambda: ex_srv.get_examples_preview(project, dataset)
+            )
             
             # Update title
             self.query_one("#preview-collapsible").title = f"Examples Preview ({total_count} stored)"
@@ -143,16 +140,12 @@ class ExamplesScreen(ControlCenterBaseScreen):
             else:
                 self.state.set_step_status('examples', 'Pending')
             
-            # Get top 5 rows
-            query = f"SELECT id, title, description FROM `{table_id}` LIMIT 5"
-            res = await loop.run_in_executor(None, lambda: list(client.query(query).result()))
-            
             table_widget = self.query_one("#examples-preview", DataTable)
             table_widget.clear(columns=True)
             table_widget.add_columns("ID", "Title", "Description")
             
-            for row in res:
-                table_widget.add_row(str(row['id']), str(row['title']), str(row['description']))
+            for row in preview_data:
+                table_widget.add_row(row[0], row[1], row[2])
                 
         except Exception:
             self.query_one("#preview-collapsible").title = "Examples Preview (0 stored)"
@@ -166,89 +159,16 @@ class ExamplesScreen(ControlCenterBaseScreen):
         self.log_content = ""
         self.write_log("Loading from Google Sheet...\n")
         
+        project = self.state.get('project')
+        dataset = self.state.get('dataset')
+        
         try:
-            import gspread
-            import google.auth
-            
-            self.write_log("Authenticating with Google Sheets...\n")
-            credentials, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'])
-            gc = gspread.authorize(credentials)
-            
-            self.write_log("Opening spreadsheet...\n")
-            sh = gc.open_by_url(url)
-            worksheet = sh.worksheet(sheet_name)
-            
-            self.write_log("Fetching data...\n")
             loop = asyncio.get_running_loop()
-            if range_val:
-                values = await loop.run_in_executor(None, lambda: worksheet.get(range_val))
-            else:
-                values = await loop.run_in_executor(None, lambda: worksheet.get_all_values())
-                
-            if not values:
-                raise Exception("No data found in the sheet.")
-                
-            if has_header:
-                headers = values[0]
-                rows = values[1:]
-            else:
-                headers = ['properties', 'title', 'description']
-                rows = values
-                
-            self.write_log(f"Read {len(rows)} rows from sheet.\n")
-            
-            prop_idx = headers.index('properties') if 'properties' in headers else 0
-            title_idx = headers.index('title') if 'title' in headers else 1
-            desc_idx = headers.index('description') if 'description' in headers else 2
-            
-            examples = []
-            for row in rows:
-                if len(row) <= max(prop_idx, title_idx, desc_idx):
-                    continue
-                props = row[prop_idx].strip()
-                title = row[title_idx].strip()
-                desc = row[desc_idx].strip()
-                
-                if not props and not title and not desc:
-                    continue
-                    
-                try:
-                    json.loads(props)
-                except json.JSONDecodeError:
-                    self.write_log(f"Warning: Invalid JSON in row: {props}. Skipping.\n")
-                    continue
-                    
-                examples.append({
-                    'id': str(uuid.uuid4()),
-                    'properties': props,
-                    'title': title,
-                    'description': desc
-                })
-                
-            if not examples:
-                raise Exception("No valid examples found.")
-                
-            client = get_bq_client(self.state.get('project'))
-            project = self.state.get('project')
-            dataset = self.state.get('dataset')
-            table_id = f"{project}.{dataset}.Examples"
-            
-            from google.cloud import bigquery
-            job_config = bigquery.LoadJobConfig(
-                schema=[
-                    bigquery.SchemaField("id", "STRING"),
-                    bigquery.SchemaField("properties", "STRING"),
-                    bigquery.SchemaField("title", "STRING"),
-                    bigquery.SchemaField("description", "STRING"),
-                ],
-                write_disposition="WRITE_TRUNCATE",
+            count = await loop.run_in_executor(
+                None,
+                lambda: ex_srv.load_examples_from_sheet(project, dataset, url, sheet_name, range_val, has_header, self.write_log)
             )
             
-            self.write_log(f"Loading {len(examples)} examples to {table_id}...\n")
-            job = client.load_table_from_json(examples, table_id, job_config=job_config)
-            await loop.run_in_executor(None, job.result)
-            
-            self.write_log("Examples loaded successfully.\n")
             self.state.set_step_status('examples', 'Completed')
             self.state.invalidate_descendants('examples')
             self.notify("Examples loaded successfully!", severity="information")
@@ -271,59 +191,18 @@ class ExamplesScreen(ControlCenterBaseScreen):
         self.write_log(f"Loading examples by ID from {source}...\n")
         
         try:
-            ids = [i.strip() for i in ids_str.split(',') if i.strip()]
-            if not ids:
-                raise Exception("No IDs provided.")
-                
-            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
-            table_id = f"{project}.{dataset}.Examples"
-            
-            ids_formatted = ", ".join([f"'{i}'" for i in ids])
-            
-            # Resolve source table reference
-            if '.' in source:
-                parts = source.split('.')
-                source_ref = ".".join([f"`{p}`" for p in parts])
-            else:
-                source_ref = f"`{project}.{dataset}.{source}`"
-                
-            # Verify IDs first
-            verify_query = f"SELECT id FROM {source_ref} WHERE id IN ({ids_formatted})"
-            self.write_log(f"Verifying IDs with query: {verify_query}\n")
-            
             loop = asyncio.get_running_loop()
-            found_res = await loop.run_in_executor(None, lambda: list(client.query(verify_query).result()))
-            found_ids = [row['id'] for row in found_res]
             
-            missing_ids = set(ids) - set(found_ids)
+            count, missing_ids = await loop.run_in_executor(
+                None,
+                lambda: ex_srv.load_examples_by_ids(project, dataset, source, ids_str, self.write_log)
+            )
+            
             if missing_ids:
-                self.write_log(f"Warning: The following IDs were not found: {list(missing_ids)}\n")
                 self.notify(f"Warning: {len(missing_ids)} IDs not found! Check logs.", severity="warning")
                 
-            if not found_ids:
-                raise Exception("None of the provided IDs were found in the source table.")
-                
-            # Use only found IDs for creation
-            ids_formatted = ", ".join([f"'{i}'" for i in found_ids])
-            
-            sql = f"""
-            CREATE OR REPLACE TABLE `{table_id}` AS
-            SELECT
-              id,
-              TO_JSON_STRING((SELECT AS STRUCT * EXCEPT(id) FROM UNNEST([I]))) AS properties,
-              title,
-              description
-            FROM {source_ref} AS I
-            WHERE id IN ({ids_formatted})
-            """
-            
-            self.write_log(f"Executing SQL:\n{sql}\n")
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: client.query(sql).result())
-            
-            self.write_log("Examples created successfully.\n")
             self.state.set_step_status('examples', 'Completed')
             self.state.invalidate_descendants('examples')
             self.notify("Examples created successfully!", severity="information")
@@ -340,13 +219,11 @@ class ExamplesScreen(ControlCenterBaseScreen):
         self.write_log("Clearing examples...\n")
         
         try:
-            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
-            table_id = f"{project}.{dataset}.Examples"
             
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: client.delete_table(table_id, not_found_ok=True))
+            await loop.run_in_executor(None, lambda: ex_srv.clear_examples(project, dataset))
             
             self.write_log("Examples cleared.\n")
             self.state.set_step_status('examples', 'Pending')

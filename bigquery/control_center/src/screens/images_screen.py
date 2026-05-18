@@ -4,14 +4,8 @@ from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, S
 from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
 import asyncio
-import os
-import subprocess
-import requests
-from google.cloud import storage
 import math
-import time
-import ssl
-import certifi
+import services.images_service as img_srv
 
 class ImagesScreen(ControlCenterBaseScreen):
     """Screen for Step 3d: Image Processing."""
@@ -65,20 +59,8 @@ class ImagesScreen(ControlCenterBaseScreen):
         project = self.state.get('project')
         
         try:
-            storage_client = storage.Client(project=project)
             loop = asyncio.get_running_loop()
-            
-            def get_bucket_stats():
-                try:
-                    bucket = storage_client.get_bucket(bucket_name)
-                    blobs = list(bucket.list_blobs(prefix="feedgen_images/"))
-                    count = len(blobs)
-                    total_size = sum(blob.size for blob in blobs)
-                    return count, total_size
-                except Exception:
-                    return None, None
-                    
-            count, total_size = await loop.run_in_executor(None, get_bucket_stats)
+            count, total_size = await loop.run_in_executor(None, lambda: img_srv.get_bucket_stats(project, bucket_name))
             
             actions_container = self.query_one("#actions-container")
             for child in actions_container.children:
@@ -131,10 +113,10 @@ class ImagesScreen(ControlCenterBaseScreen):
     async def create_bucket(self, bucket_name: str) -> None:
         self.notify("Creating bucket...")
         try:
-            storage_client = storage.Client(project=self.state.get('project'))
+            project = self.state.get('project')
             region = self.state.get('region', 'US')
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, lambda: storage_client.create_bucket(bucket_name, location=region))
+            await loop.run_in_executor(None, lambda: img_srv.create_bucket(project, bucket_name, region))
             
             self.notify("Bucket created successfully!", severity="information")
             self.run_worker(self.load_bucket_info)
@@ -146,42 +128,23 @@ class ImagesScreen(ControlCenterBaseScreen):
         self.notify("Deleting images...")
         self.query_one("#progress-bar").styles.display = "block"
         try:
-            storage_client = storage.Client(project=self.state.get('project'))
-            bucket = storage_client.get_bucket(bucket_name)
-            
+            project = self.state.get('project')
+            dataset = self.state.get('dataset')
             loop = asyncio.get_running_loop()
             
-            # Fetch blobs first to get total
-            def get_blobs():
-                return list(bucket.list_blobs(prefix="feedgen_images/"))
-            blobs_list = await loop.run_in_executor(None, get_blobs)
-            total_blobs = len(blobs_list)
-            
-            self.query_one("#progress-bar").update(total=total_blobs, progress=0)
-            
-            def do_delete():
-                from google.api_core.exceptions import NotFound
-                count = 0
-                for blob in blobs_list:
-                    if self.app._exit: return count
-                    try:
-                        blob.delete()
-                        count += 1
-                    except NotFound:
-                        pass
-                    self.app.call_from_thread(self.query_one("#progress-bar").advance, 1)
-                return count
-                
-            count = await loop.run_in_executor(None, do_delete)
+            def progress_cb(total=None, progress=None, advance=None):
+                if total is not None:
+                    self.app.call_from_thread(self.query_one("#progress-bar").update, total=total, progress=progress)
+                if advance is not None:
+                    self.app.call_from_thread(self.query_one("#progress-bar").advance, advance)
+                    
+            count = await loop.run_in_executor(
+                None, 
+                lambda: img_srv.delete_images(project, dataset, bucket_name, progress_cb, lambda: self.app._exit)
+            )
             
             self.notify(f"Deleted {count} images!", severity="information")
             self.query_one("#status-label", Label).update(f"[green]Done! Deleted {count} images.[/]")
-            
-            project = self.state.get('project')
-            dataset = self.state.get('dataset')
-            client = get_bq_client(self.state.get('project'))
-            sql_drop = f"DROP TABLE IF EXISTS `{project}.{dataset}.Images`"
-            await loop.run_in_executor(None, lambda: client.query(sql_drop).result())
             
             self.state.set_step_status('images', 'Pending')
             self.state.invalidate_descendants('images')
@@ -198,121 +161,39 @@ class ImagesScreen(ControlCenterBaseScreen):
         
         project = self.state.get('project')
         dataset = self.state.get('dataset')
+        connection_val = self.state.get('connection', 'feedgen_connection')
+        region_val = self.state.get('region', 'EU')
         
         try:
-            storage_client = storage.Client(project=project)
-            bucket = storage_client.get_bucket(bucket_name)
+            def progress_cb(total=None, progress=None, advance=None):
+                if total is not None:
+                    self.app.call_from_thread(self.query_one("#progress-bar").update, total=total, progress=progress)
+                if advance is not None:
+                    self.app.call_from_thread(self.query_one("#progress-bar").advance, advance)
+                    
+            result = img_srv.run_image_processing(
+                project, dataset, bucket_name, connection_val, region_val,
+                log_cb=self.write_log,
+                progress_cb=progress_cb,
+                is_cancelled=lambda: self.app._exit
+            )
             
-            # 2. Fetch URLs
-            client = get_bq_client(self.state.get('project'))
-            query = f"SELECT DISTINCT image_url FROM `{project}.{dataset}.InputFiltered` WHERE image_url IS NOT NULL"
-            self.write_log(f"Fetching image URLs...\n")
-            
-            results = list(client.query(query).result())
-            urls = [row['image_url'] for row in results]
-            self.write_log(f"Found {len(urls)} unique image URLs.\n")
-            
-            self.write_log("Analyzing existing images in bucket...\n")
-            
-            # Cache existing blobs to avoid re-uploading
-            existing_blobs = set()
-            for b in bucket.list_blobs(prefix="feedgen_images/"):
-                existing_blobs.add(b.name)
-            
-            self.write_log(f"Found {len(existing_blobs)} existing images. Processing remaining...\n")
-            
-            # Reset progress bar to 0 and set total
-            self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, total=len(urls), progress=0)
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            
-            success_count = 0
-            skipped_count = 0
-            
-            import concurrent.futures
-            import hashlib
-            
-            def process_image(url):
-                if self.app._exit: return False, "cancelled", "" 
+            if result.get('cancelled'):
+                return
                 
-                filename = url.split('/')[-1]
-                if not filename or '?' in filename:
-                    filename = f"image_{hashlib.md5(url.encode()).hexdigest()}.jpg"
-                    
-                blob_path = f"feedgen_images/{filename}"
-                
-                # Check cache
-                if blob_path in existing_blobs:
-                    return True, "skipped", filename
-                    
-                blob = bucket.blob(blob_path)
-                try:
-                    response = requests.get(url, headers=headers, stream=True, timeout=10, verify=certifi.where())
-                        
-                    response.raise_for_status()
-                    blob.upload_from_file(response.raw, content_type=response.headers.get('Content-Type', 'image/jpeg'))
-                    return True, "uploaded", filename
-                except Exception as e:
-                    return False, f"Error {url}: {e}", filename
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-                future_to_url = {executor.submit(process_image, url): url for url in urls}
-                for future in concurrent.futures.as_completed(future_to_url):
-                    if self.app._exit:
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        self.write_log("App is shutting down. Cancelling image downloads...\n")
-                        return
-                    
-                    success, status, filename = future.result()
-                    if success:
-                        if status == "skipped":
-                            skipped_count += 1
-                        else:
-                            success_count += 1
-                            self.write_log(f"Success: uploaded {filename}\n")
-                    else:
-                        if status != "cancelled":
-                            self.write_log(f"{status}\n")
-                    
-                    self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).advance, 1)
-                    
-            self.write_log(f"Finished: {success_count} uploaded, {skipped_count} skipped.\n")
-            
-            self.write_log("Creating external table in BigQuery...\n")
-            
-            connection_val = self.state.get('connection', 'feedgen_connection')
-            region_val = self.state.get('region', 'EU')
-            
-            connection_path = f"{project}.{region_val.lower()}.{connection_val}"
-            
-            sql_external = f"""
-            CREATE OR REPLACE EXTERNAL TABLE `{project}.{dataset}.Images`
-            WITH CONNECTION `{connection_path}`
-            OPTIONS(
-              object_metadata = 'SIMPLE',
-              uris = ['gs://{bucket_name}/feedgen_images/*'],
-              max_staleness = INTERVAL 7 DAY,
-              metadata_cache_mode = 'AUTOMATIC');
-            """
-            
-            client.query(sql_external).result()
-            self.write_log("External table 'Images' created.\n")
-            
-            self.state.set_step_status('images', 'Completed')
-            self.state.invalidate_descendants('images')
-            
             report = (
                 f"[bold]Image Processing Report:[/bold]\n"
-                f"- Total URLs found: {len(urls)}\n"
-                f"- Successfully processed: {success_count}\n"
-                f"- Failed: {len(urls) - success_count}"
+                f"- Total URLs found: {result['total']}\n"
+                f"- Successfully processed: {result['success']}\n"
+                f"- Failed: {result['total'] - result['success']}"
             )
             
             self.app.call_from_thread(self.query_one("#status-label", Label).update, report)
             self.app.call_from_thread(self.run_worker, self.load_bucket_info)
             self.app.call_from_thread(self.notify, "Image processing completed!", severity="information")
+            
+            self.state.set_step_status('images', 'Completed')
+            self.state.invalidate_descendants('images')
             
         except Exception as e:
             self.write_log(f"Error: {e}\n")
