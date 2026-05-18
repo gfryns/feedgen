@@ -30,6 +30,11 @@ ListItem {
     margin-bottom: 1;
 }
 
+#preview-title, #mapping-title, #options-title, #scraping-title, #images-title, #examples-source-title, #gen-config-title, #export-config-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
 #form-container Input, #form-container Select {
     margin-bottom: 1;
 }
@@ -72,6 +77,13 @@ Collapsible {
 .col3 {
     width: 33%;
     padding: 0 1;
+}
+
+.card {
+    border: round $primary;
+    padding: 1 2;
+    margin-bottom: 1;
+    background: $surface;
 }
 
 #progress-bar {

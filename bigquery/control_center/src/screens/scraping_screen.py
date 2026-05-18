@@ -1,7 +1,7 @@
 from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar
-from textual.containers import Vertical, Horizontal
+from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
 import asyncio
 import csv
@@ -32,10 +32,12 @@ class ScrapingScreen(ControlCenterBaseScreen):
                 with Horizontal():
                     yield Button("Back to Menu", id="back-btn")
             else:
-                yield Label(f"Product Page URL Column: {url_col}")
-                
-                yield Label("CSS Selector for description:")
-                yield Input(value=self.state.get('selector', 'div[data-testid^="item-description"]'), id="selector")
+                with Container(classes="card"):
+                    yield Label("Scraping Configuration", id="scraping-title")
+                    yield Label(f"Product Page URL Column: {url_col}")
+                    
+                    yield Label("CSS Selector for description:")
+                    yield Input(value=self.state.get('selector', 'div[data-testid^="item-description"]'), id="selector")
                 
                 with Horizontal():
                     yield Button("Run Scraping", variant="success", id="run-btn")

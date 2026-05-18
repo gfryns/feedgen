@@ -1,7 +1,7 @@
 from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar, Select
-from textual.containers import Vertical, Horizontal
+from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
 import asyncio
 import time
@@ -135,23 +135,25 @@ class GenerationScreen(ControlCenterBaseScreen):
         with Vertical(id="form-container"):
             yield Label("Step 4: Generation Options", id="title")
             
-            with Horizontal(id="gen-row-1"):
-                with Vertical(classes="col3"):
-                    yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
-                with Vertical(classes="col3"):
-                    yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
-                with Vertical(classes="col3"):
-                    yield Label("Language:")
-                    default_lang = self.state.get('language', 'English (en)')
-                    yield Select(self.languages, value=default_lang, id="language")
-            
-            with Horizontal(id="gen-row-2"):
-                with Vertical(id="table-col"):
-                    yield Label("Destination Table Name:")
-                    yield Input(value=self.state.get('output_table', 'Output'), id="output-table")
-                with Vertical(id="workers-col"):
-                    yield Label("Workers:")
-                    yield Select(self.workers_options, value=self.state.get('workers', 5), id="workers")
+            with Container(classes="card"):
+                yield Label("Generation Configuration", id="gen-config-title")
+                with Horizontal(id="gen-row-1"):
+                    with Vertical(classes="col3"):
+                        yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
+                    with Vertical(classes="col3"):
+                        yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
+                    with Vertical(classes="col3"):
+                        yield Label("Language:")
+                        default_lang = self.state.get('language', 'English (en)')
+                        yield Select(self.languages, value=default_lang, id="language")
+                
+                with Horizontal(id="gen-row-2"):
+                    with Vertical(id="table-col"):
+                        yield Label("Destination Table Name:")
+                        yield Input(value=self.state.get('output_table', 'Output'), id="output-table")
+                    with Vertical(id="workers-col"):
+                        yield Label("Workers:")
+                        yield Select(self.workers_options, value=self.state.get('workers', 5), id="workers")
             
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")

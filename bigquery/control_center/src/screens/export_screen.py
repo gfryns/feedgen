@@ -1,7 +1,7 @@
 from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Log, Select
-from textual.containers import Vertical, Horizontal
+from textual.containers import Vertical, Horizontal, Container
 import asyncio
 
 class ExportScreen(ControlCenterBaseScreen):
@@ -20,14 +20,16 @@ class ExportScreen(ControlCenterBaseScreen):
         with Vertical(id="form-container"):
             yield Label("Step 5: Export to Merchant Center", id="title")
             
-            yield Label("Select Feed Type:")
-            yield Select(self.feed_types, value=self.state.get('feed_type', 'supplemental'), id="feed-type")
-            
-            yield Label("Export Table Name:")
-            yield Input(value=self.state.get('export_table', 'ExportGMC'), placeholder="ExportGMC", id="export-table")
+            with Container(classes="card"):
+                yield Label("Export Configuration", id="export-config-title")
+                yield Label("Select Feed Type:")
+                yield Select(self.feed_types, value=self.state.get('feed_type', 'supplemental'), id="feed-type")
+                
+                yield Label("Export Table Name:")
+                yield Input(value=self.state.get('export_table', 'ExportGMC'), placeholder="ExportGMC", id="export-table")
             
             with Horizontal():
-                yield Button("Generate Export Table", variant="success", id="run-btn")
+                yield Button("Run Export", variant="success", id="run-btn")
                 yield Button("Back to Menu", id="back-btn")
                 
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):

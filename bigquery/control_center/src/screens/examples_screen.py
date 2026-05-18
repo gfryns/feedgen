@@ -30,32 +30,34 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 id="examples-tip"
             )
             
-            method = self.state.get('examples_method', 'sheet')
-            yield Select(self.methods, value=method, id="method-select")
-            
-            # 1. Spreadsheet Container
-            with Vertical(id="sheet-container", classes="method-container"):
-                yield Label("Spreadsheet URL:")
-                yield Input(value=self.state.get('sheet_url', ''), placeholder="Enter URL", id="sheet-url")
-                with Horizontal(id="sheet-fields-row"):
-                    with Vertical(classes="col3"):
-                        yield Label("Sheet Name:")
-                        yield Input(value=self.state.get('sheet_name', 'Sheet1'), id="sheet-name")
-                    with Vertical(classes="col3"):
-                        yield Label("Range (optional):")
-                        yield Input(value=self.state.get('sheet_range', ''), placeholder="e.g. A1:D10", id="sheet-range")
-                    with Vertical(classes="col3"):
-                        yield Button("[green]✔[/] Has Header", id="header-btn")
+            with Container(classes="card"):
+                yield Label("Examples Source", id="examples-source-title")
+                method = self.state.get('examples_method', 'sheet')
+                yield Select(self.methods, value=method, id="method-select")
                 
-            # 2. Pick by ID Container
-            with Vertical(id="ids-container", classes="method-container"):
-                yield Label("Source Table:")
-                yield Input(value="InputFiltered", id="ids-source")
-                yield Label("Product IDs (comma-separated):")
-                yield Input(placeholder="ID1, ID2, ID3", id="product-ids")
+                # 1. Spreadsheet Container
+                with Vertical(id="sheet-container", classes="method-container"):
+                    yield Label("Spreadsheet URL:")
+                    yield Input(value=self.state.get('sheet_url', ''), placeholder="Enter URL", id="sheet-url")
+                    with Horizontal(id="sheet-fields-row"):
+                        with Vertical(classes="col3"):
+                            yield Label("Sheet Name:")
+                            yield Input(value=self.state.get('sheet_name', 'Sheet1'), id="sheet-name")
+                        with Vertical(classes="col3"):
+                            yield Label("Range (optional):")
+                            yield Input(value=self.state.get('sheet_range', ''), placeholder="e.g. A1:D10", id="sheet-range")
+                        with Vertical(classes="col3"):
+                            yield Button("[green]✔[/] Has Header", id="header-btn")
+                    
+                # 2. Pick by ID Container
+                with Vertical(id="ids-container", classes="method-container"):
+                    yield Label("Source Table:")
+                    yield Input(value="InputFiltered", id="ids-source")
+                    yield Label("Product IDs (comma-separated):")
+                    yield Input(placeholder="ID1, ID2, ID3", id="product-ids")
                 
             with Horizontal():
-                yield Button("Import examples", variant="success", id="run-btn")
+                yield Button("Run Import", variant="success", id="run-btn")
                 yield Button("Delete Stored Examples", variant="error", id="delete-btn")
                 yield Button("Back to Menu", id="back-btn")
                 

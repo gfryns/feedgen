@@ -35,14 +35,16 @@ class ImagesScreen(ControlCenterBaseScreen):
                 with Horizontal():
                     yield Button("Back to Menu", id="back-btn")
             else:
-                yield Label(f"Image URL Column: {image_col}")
-                
-                yield Label("GCS Bucket Name:")
-                yield Input(value=self.state.get('bucket', f"{self.state.get('project')}-images"), id="bucket")
-                
-                yield Label("Bucket Status: Loading...", id="bucket-info")
-                
-                yield Container(id="actions-container")
+                with Container(classes="card"):
+                    yield Label("Image Processing Configuration", id="images-title")
+                    yield Label(f"Image URL Column: {image_col}")
+                    
+                    yield Label("GCS Bucket Name:")
+                    yield Input(value=self.state.get('bucket', f"{self.state.get('project')}-images"), id="bucket")
+                    
+                    yield Label("Bucket Status: Loading...", id="bucket-info")
+                    
+                    yield Container(id="actions-container")
                 
                 yield Label("", id="status-label")
                 yield ProgressBar(id="progress-bar")
@@ -88,8 +90,8 @@ class ImagesScreen(ControlCenterBaseScreen):
                 
                 await actions_container.mount(
                     Horizontal(
-                        Button("Delete stored images", variant="error", id="delete-btn"),
                         Button("Run Image Processing", variant="success", id="run-btn"),
+                        Button("Delete stored images", variant="error", id="delete-btn"),
                         Button("Back to Menu", id="back-btn")
                     )
                 )

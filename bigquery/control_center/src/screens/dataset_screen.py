@@ -47,18 +47,19 @@ class DatasetScreen(ControlCenterBaseScreen):
         with Vertical(id="form-container"):
             yield Label("BigQuery Dataset Setup", id="title")
             
-            with Horizontal():
-                with Vertical(classes="col"):
-                    yield Label("BigQuery Dataset Name:")
-                    yield Input(value=self.state.get('dataset', 'feedgen_dataset'), id="dataset")
-                with Vertical(classes="col"):
-                    yield Label("Region:")
-                    yield Select(self.regions, value=self.state.get('region', 'EU'), id="region")
-            
-            yield Label("Gemini Model Version:")
-            yield Select(self.models, value=self.state.get('model', 'gemini-2.5-flash'), id="model")
-            
-            yield Input(placeholder="Enter custom model ID (e.g., gemini-1.0-pro)", id="custom-model")
+            with Container(classes="card"):
+                with Horizontal():
+                    with Vertical(classes="col"):
+                        yield Label("BigQuery Dataset Name:")
+                        yield Input(value=self.state.get('dataset', 'feedgen_dataset'), id="dataset")
+                    with Vertical(classes="col"):
+                        yield Label("Region:")
+                        yield Select(self.regions, value=self.state.get('region', 'EU'), id="region")
+                
+                yield Label("Gemini Model Version:")
+                yield Select(self.models, value=self.state.get('model', 'gemini-2.5-flash'), id="model")
+                
+                yield Input(placeholder="Enter custom model ID (e.g., gemini-1.0-pro)", id="custom-model")
             
             with Collapsible(title="What will be done?", collapsed=True):
                 yield Static(
@@ -72,7 +73,7 @@ class DatasetScreen(ControlCenterBaseScreen):
                 )
                 
             with Horizontal():
-                yield Button("Save and Deploy", variant="success", id="save-deploy-btn")
+                yield Button("Run Deployment", variant="success", id="save-deploy-btn")
                 yield Button("Back to Menu", id="back-btn")
                 
             yield LoadingIndicator(id="loading")

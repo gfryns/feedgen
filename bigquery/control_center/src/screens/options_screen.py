@@ -15,33 +15,37 @@ class OptionsScreen(ControlCenterBaseScreen):
         with Vertical(id="form-container"):
             yield Label("Step 3b: Filtering Options", id="title")
             
-            with Horizontal():
-                with Vertical(classes="col"):
-                    yield Label("Map ID Column:")
-                    yield Container(id="id-col-container")
-                with Vertical(classes="col"):
-                    yield Label("Map Title Column:")
-                    yield Container(id="title-col-container")
-                with Vertical(classes="col"):
-                    yield Label("Map Description Column:")
-                    yield Container(id="desc-col-container")
-                    
-            with Horizontal():
-                with Vertical(classes="col"):
-                    yield Label("Map URL Column (Optional):")
-                    yield Container(id="url-col-container")
-                with Vertical(classes="col"):
-                    yield Label("Map Image URL Column (Optional):")
-                    yield Container(id="image-col-container")
+            with Container(classes="card"):
+                yield Label("Column Mapping", id="mapping-title")
+                with Horizontal():
+                    with Vertical(classes="col"):
+                        yield Label("Map ID Column:")
+                        yield Container(id="id-col-container")
+                    with Vertical(classes="col"):
+                        yield Label("Map Title Column:")
+                        yield Container(id="title-col-container")
+                    with Vertical(classes="col"):
+                        yield Label("Map Description Column:")
+                        yield Container(id="desc-col-container")
+                        
+                with Horizontal():
+                    with Vertical(classes="col"):
+                        yield Label("Map URL Column (Optional):")
+                        yield Container(id="url-col-container")
+                    with Vertical(classes="col"):
+                        yield Label("Map Image URL Column (Optional):")
+                        yield Container(id="image-col-container")
             
-            yield Label("Additional Columns to include (comma-separated, or * for all):")
-            yield Input(value=self.state.get('include_cols', 'brand,category'), id="include-cols")
-            
-            yield Label("Additional SQL clauses (e.g., WHERE clicks > 10):")
-            yield Input(value=self.state.get('filters', ''), placeholder="WHERE ...", id="filters")
+            with Container(classes="card"):
+                yield Label("Additional Options", id="options-title")
+                yield Label("Additional Columns to include (comma-separated, or * for all):")
+                yield Input(value=self.state.get('include_cols', 'brand,category'), id="include-cols")
+                
+                yield Label("Additional SQL clauses (e.g., WHERE clicks > 10):")
+                yield Input(value=self.state.get('filters', ''), placeholder="WHERE ...", id="filters")
             
             with Horizontal():
-                yield Button("Save and Create Table", variant="success", id="save-create-btn")
+                yield Button("Run Filter", variant="success", id="save-create-btn")
                 yield Button("Back to Menu", id="back-btn")
                 
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):
