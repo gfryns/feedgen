@@ -51,6 +51,12 @@ class ControlCenterBaseScreen(Screen):
         except Exception as e:
             self.notify(f"Failed to copy logs: {e}", severity="error")
 
+    def notify(self, message: str, *, severity: str = "information", timeout: float = 3.0, markup: bool = False) -> None:
+        from textual.markup import escape
+        if not markup:
+            message = escape(str(message))
+        super().notify(message, severity=severity, timeout=timeout)
+
     def write_log(self, text: str) -> None:
         """Write to the log widget safely, regardless of which thread calls this."""
         if threading.get_ident() == self._main_thread_id:
