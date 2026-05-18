@@ -2,6 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, LoadingIndicator, Select
 from textual.containers import Vertical, Horizontal, Container
+from textual.markup import escape
 from validators import is_valid_dataset_name
 import asyncio
 import json
@@ -171,6 +172,6 @@ class DatasetScreen(ControlCenterBaseScreen):
             
         except Exception as e:
             self.query_one("#loading").styles.display = "none"
-            self.query_one("#status-label").update(f"[red]Status: Error during deployment: {e}[/]")
+            self.query_one("#status-label").update(f"[red]Status: Error during deployment: {escape(str(e))}[/]")
             self.notify(f"Error during deployment: {e}", severity="error")
             self.write_log(f"Error: {e}\n")

@@ -2,6 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Log, Select
 from textual.containers import Vertical, Horizontal, Container
+from textual.markup import escape
 import asyncio
 
 class ExportScreen(ControlCenterBaseScreen):
@@ -80,4 +81,4 @@ class ExportScreen(ControlCenterBaseScreen):
         except Exception as e:
             self.write_log(f"Error: {e}\n")
             self.notify(f"Error during export: {e}", severity="error")
-            self.query_one("#status-label", Label).update(f"[red]Error during export: {e}[/]")
+            self.query_one("#status-label", Label).update(f"[red]Error during export: {escape(str(e))}[/]")

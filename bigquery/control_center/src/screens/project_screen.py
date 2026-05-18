@@ -2,6 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, LoadingIndicator, Log
 from textual.containers import Vertical, Horizontal
+from textual.markup import escape
 from validators import is_valid_project_id
 import asyncio
 import subprocess
@@ -81,7 +82,7 @@ class ProjectScreen(ControlCenterBaseScreen):
             
         except Exception as e:
             self.query_one("#loading").styles.display = "none"
-            self.query_one("#status-label").update(f"[red]Status: Error enabling APIs: {e}[/]")
+            self.query_one("#status-label").update(f"[red]Status: Error enabling APIs: {escape(str(e))}[/]")
             self.notify(f"Error enabling APIs: {e}", severity="error")
             self.write_log(f"Error: {e}\n")
 
