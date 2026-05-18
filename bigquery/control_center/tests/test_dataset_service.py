@@ -40,7 +40,6 @@ class TestDatasetService:
             region_val="EU",
             connection_val="test_conn",
             model_val="gemini-test",
-            insecure=False,
             log_cb=mock_log
         )
         

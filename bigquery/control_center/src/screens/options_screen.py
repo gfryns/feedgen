@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Select, Collapsible, Log
 from textual.containers import Vertical, Horizontal, Container
-from screens.dataset_screen import get_bq_client
+from services.bq_client import get_bq_client
 import asyncio
 import re
 import subprocess
@@ -65,7 +65,7 @@ class OptionsScreen(ControlCenterBaseScreen):
             full_ref = raw_table
             
         try:
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             table = client.get_table(full_ref)
             cols = [field.name for field in table.schema]
             
@@ -125,7 +125,6 @@ class OptionsScreen(ControlCenterBaseScreen):
         project = self.state.get('project')
         dataset = self.state.get('dataset')
         raw_table = self.state.get('raw_table')
-        insecure = self.state.insecure
         
         try:
             from services.filter_service import create_filtered_table as run_filter
@@ -133,7 +132,7 @@ class OptionsScreen(ControlCenterBaseScreen):
             
             await loop.run_in_executor(
                 None,
-                lambda: run_filter(project, dataset, raw_table, id_col, title_col, desc_col, url_col, image_col, include_cols, filters, insecure, self.write_log)
+                lambda: run_filter(project, dataset, raw_table, id_col, title_col, desc_col, url_col, image_col, include_cols, filters, self.write_log)
             )
             
             self.state.set_step_status('filter', 'Completed')

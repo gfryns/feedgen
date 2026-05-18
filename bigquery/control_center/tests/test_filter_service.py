@@ -25,7 +25,6 @@ class TestFilterService:
             image_col="c5",
             include_cols="*",
             filters="WHERE x=1",
-            insecure=False,
             log_cb=mock_log
         )
         
@@ -55,8 +54,7 @@ class TestFilterService:
             url_col="skip", # skipped
             image_col="c5",
             include_cols="brand, price",
-            filters="",
-            insecure=False
+            filters=""
         )
         
         # Assert

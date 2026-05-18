@@ -4,9 +4,9 @@ from google.cloud import resourcemanager_v3
 from google.iam.v1 import policy_pb2
 from services.bq_client import get_bq_client
 
-def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str, connection_val: str, model_val: str, insecure: bool, titles_prompt_path: str = "prompts/titles.txt", desc_prompt_path: str = "prompts/descriptions.txt", log_cb=print):
+def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str, connection_val: str, model_val: str, titles_prompt_path: str = "prompts/titles.txt", desc_prompt_path: str = "prompts/descriptions.txt", log_cb=print):
     """Creates the dataset, connection, model, IAM bindings, and routines."""
-    client = get_bq_client(project_val, insecure)
+    client = get_bq_client(project_val)
     
     # 1. Create Dataset
     log_cb(f"Creating dataset {dataset_val} in {region_val}...\n")

@@ -7,7 +7,6 @@ class ControlCenterStateManager:
     def __init__(self, filename=STATE_FILE):
         self.filename = filename
         self.data = self._load_state()
-        self.insecure = False # In-memory flag
         
         # Master dependency graph
         self.dependencies = {

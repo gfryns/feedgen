@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, Checkbox, ProgressBar
 from textual.containers import Vertical, Horizontal, Container
-from screens.dataset_screen import get_bq_client
+from services.bq_client import get_bq_client
 import asyncio
 import os
 import subprocess
@@ -177,7 +177,7 @@ class ImagesScreen(ControlCenterBaseScreen):
             
             project = self.state.get('project')
             dataset = self.state.get('dataset')
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             sql_drop = f"DROP TABLE IF EXISTS `{project}.{dataset}.Images`"
             await loop.run_in_executor(None, lambda: client.query(sql_drop).result())
             
@@ -196,14 +196,13 @@ class ImagesScreen(ControlCenterBaseScreen):
         
         project = self.state.get('project')
         dataset = self.state.get('dataset')
-        insecure = self.state.insecure
         
         try:
             storage_client = storage.Client(project=project)
             bucket = storage_client.get_bucket(bucket_name)
             
             # 2. Fetch URLs
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             query = f"SELECT DISTINCT image_url FROM `{project}.{dataset}.InputFiltered` WHERE image_url IS NOT NULL"
             self.write_log(f"Fetching image URLs...\n")
             
@@ -248,10 +247,7 @@ class ImagesScreen(ControlCenterBaseScreen):
                     
                 blob = bucket.blob(blob_path)
                 try:
-                    if insecure:
-                        response = requests.get(url, headers=headers, stream=True, timeout=10, verify=False)
-                    else:
-                        response = requests.get(url, headers=headers, stream=True, timeout=10, verify=certifi.where())
+                    response = requests.get(url, headers=headers, stream=True, timeout=10, verify=certifi.where())
                         
                     response.raise_for_status()
                     blob.upload_from_file(response.raw, content_type=response.headers.get('Content-Type', 'image/jpeg'))

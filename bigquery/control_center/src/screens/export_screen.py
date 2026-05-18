@@ -60,7 +60,6 @@ class ExportScreen(ControlCenterBaseScreen):
         dataset = self.state.get('dataset')
         raw_table = self.state.get('raw_table')
         output_table = self.state.get('output_table', 'Output')
-        insecure = self.state.insecure
         
         try:
             from services.export_service import export_to_gmc
@@ -68,7 +67,7 @@ class ExportScreen(ControlCenterBaseScreen):
             
             await loop.run_in_executor(
                 None,
-                lambda: export_to_gmc(project, dataset, raw_table, output_table, export_table, feed_type, insecure, self.write_log)
+                lambda: export_to_gmc(project, dataset, raw_table, output_table, export_table, feed_type, self.write_log)
             )
             
             self.state.set_step_status('export', 'Completed')

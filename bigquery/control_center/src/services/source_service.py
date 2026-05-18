@@ -1,14 +1,14 @@
 import re
 from services.bq_client import get_bq_client
 
-def get_table_info(project_val: str, dataset_val: str, raw_table: str, target_region: str, insecure: bool, log_cb=print):
+def get_table_info(project_val: str, dataset_val: str, raw_table: str, target_region: str, log_cb=print):
     """Fetches schema and a preview of the source BigQuery table."""
     if '.' not in raw_table:
         full_ref = f"{project_val}.{dataset_val}.{raw_table}"
     else:
         full_ref = raw_table
         
-    client = get_bq_client(project_val, insecure)
+    client = get_bq_client(project_val)
     table = client.get_table(full_ref)
     location = table.location
     num_rows = table.num_rows

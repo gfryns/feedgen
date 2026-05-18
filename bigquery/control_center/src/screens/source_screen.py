@@ -2,8 +2,6 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Static, DataTable
 from textual.containers import Vertical, Horizontal
-from screens.dataset_screen import get_bq_client
-import re
 import asyncio
 
 class SourceScreen(ControlCenterBaseScreen):
@@ -58,7 +56,6 @@ class SourceScreen(ControlCenterBaseScreen):
         project = self.state.get('project')
         dataset = self.state.get('dataset')
         target_region = self.state.get('region', 'EU')
-        insecure = self.state.insecure
             
         try:
             from services.source_service import get_table_info
@@ -66,7 +63,7 @@ class SourceScreen(ControlCenterBaseScreen):
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, 
-                lambda: get_table_info(project, dataset, raw_table, target_region, insecure, self.write_log)
+                lambda: get_table_info(project, dataset, raw_table, target_region, self.write_log)
             )
             
             for warning in result['warnings']:

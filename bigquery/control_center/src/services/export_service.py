@@ -1,9 +1,9 @@
 from services.bq_client import get_bq_client
 
-def export_to_gmc(project_val: str, dataset_val: str, raw_table: str, output_table: str, export_table: str, feed_type: str, insecure: bool, log_cb=print):
+def export_to_gmc(project_val: str, dataset_val: str, raw_table: str, output_table: str, export_table: str, feed_type: str, log_cb=print):
     """Creates the EmbedForMerchantFeed UDF and exports the generated data."""
     log_cb("Starting Merchant Center Export process...\n")
-    client = get_bq_client(project_val, insecure)
+    client = get_bq_client(project_val)
     
     # 1. Create the formatting function
     log_cb("Deploying EmbedForMerchantFeed function...\n")

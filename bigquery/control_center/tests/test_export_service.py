@@ -21,7 +21,6 @@ class TestExportService:
             output_table="Out",
             export_table="Exp",
             feed_type="supplemental",
-            insecure=False,
             log_cb=mock_log
         )
         
@@ -57,7 +56,6 @@ class TestExportService:
             output_table="Out",
             export_table="Exp",
             feed_type="full",
-            insecure=False,
             log_cb=mock_log
         )
         
@@ -82,7 +80,6 @@ class TestExportService:
             output_table="Out",
             export_table="Exp",
             feed_type="full",
-            insecure=False,
             log_cb=lambda msg: None
         )
         # Verify the raw_table reference was constructed properly
@@ -100,6 +97,5 @@ class TestExportService:
                 output_table="Out",
                 export_table="Exp",
                 feed_type="invalid_type", # Hits the exception branch
-                insecure=False,
                 log_cb=lambda msg: None
             )

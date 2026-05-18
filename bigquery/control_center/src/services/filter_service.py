@@ -1,6 +1,6 @@
 from services.bq_client import get_bq_client
 
-def create_filtered_table(project_val: str, dataset_val: str, raw_table: str, id_col: str, title_col: str, desc_col: str, url_col: str, image_col: str, include_cols: str, filters: str, insecure: bool, log_cb=print):
+def create_filtered_table(project_val: str, dataset_val: str, raw_table: str, id_col: str, title_col: str, desc_col: str, url_col: str, image_col: str, include_cols: str, filters: str, log_cb=print):
     """Creates the InputFiltered table in BigQuery based on user options."""
     log_cb("Creating filtered table...\n")
     
@@ -35,6 +35,6 @@ def create_filtered_table(project_val: str, dataset_val: str, raw_table: str, id
     
     log_cb(f"Executing SQL:\n{sql_filter}\n")
     
-    client = get_bq_client(project_val, insecure)
+    client = get_bq_client(project_val)
     client.query(sql_filter).result()
     log_cb("Table created successfully!\n")

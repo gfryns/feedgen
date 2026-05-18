@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar, Select
 from textual.containers import Vertical, Horizontal
-from screens.dataset_screen import get_bq_client
+from services.bq_client import get_bq_client
 import asyncio
 import time
 import subprocess
@@ -205,7 +205,7 @@ class GenerationScreen(ControlCenterBaseScreen):
         dataset = self.state.get('dataset')
         
         try:
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             
             # 1. Prepare Tables
             self.write_log("Preparing tables...\n")

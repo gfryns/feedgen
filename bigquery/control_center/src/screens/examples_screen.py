@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, Select, DataTable
 from textual.containers import Vertical, Horizontal, Container
-from screens.dataset_screen import get_bq_client
+from services.bq_client import get_bq_client
 import asyncio
 import json
 import uuid
@@ -121,7 +121,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             
     async def load_examples_preview(self) -> None:
         try:
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
             table_id = f"{project}.{dataset}.Examples"
@@ -226,7 +226,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             if not examples:
                 raise Exception("No valid examples found.")
                 
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
             table_id = f"{project}.{dataset}.Examples"
@@ -273,7 +273,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             if not ids:
                 raise Exception("No IDs provided.")
                 
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
             table_id = f"{project}.{dataset}.Examples"
@@ -338,7 +338,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
         self.write_log("Clearing examples...\n")
         
         try:
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             project = self.state.get('project')
             dataset = self.state.get('dataset')
             table_id = f"{project}.{dataset}.Examples"

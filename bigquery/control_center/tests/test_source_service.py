@@ -33,8 +33,7 @@ class TestSourceService:
             project_val="test-proj",
             dataset_val="test_ds",
             raw_table="other-proj.other_ds.MyTable", # Full ref provided
-            target_region="EU",
-            insecure=False
+            target_region="EU"
         )
         
         # Assert
@@ -66,8 +65,7 @@ class TestSourceService:
             project_val="test-proj",
             dataset_val="test_ds",
             raw_table="MyTable", # Short name
-            target_region="EU",
-            insecure=False
+            target_region="EU"
         )
         
         # Assert

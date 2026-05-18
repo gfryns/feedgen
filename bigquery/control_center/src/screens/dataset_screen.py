@@ -9,20 +9,6 @@ import subprocess
 import yaml
 import os
 
-def get_bq_client(state):
-    project = state.get('project')
-    insecure = state.insecure
-    from google.cloud import bigquery
-    
-    if insecure:
-        import os
-        import ssl
-        os.environ['PYTHONHTTPSVERIFY'] = '0'
-        ssl._create_default_https_context = ssl._create_unverified_context
-        
-        return bigquery.Client(project=project)
-    else:
-        return bigquery.Client(project=project)
 
 class DatasetScreen(ControlCenterBaseScreen):
     """Screen for Step 2: BigQuery Dataset Setup."""
@@ -161,7 +147,6 @@ class DatasetScreen(ControlCenterBaseScreen):
         project_val = self.state.get('project')
         connection_val = self.state.get('connection', 'feedgen_connection')
         model_val = self.state.get('model', 'gemini-2.5-flash')
-        insecure = self.state.insecure
         
         try:
             from services.dataset_service import deploy_dataset_and_model
@@ -170,7 +155,7 @@ class DatasetScreen(ControlCenterBaseScreen):
             await loop.run_in_executor(
                 None, 
                 lambda: deploy_dataset_and_model(
-                    project_val, dataset_val, region_val, connection_val, model_val, insecure, self.prompt_titles, self.prompt_descriptions, self.write_log
+                    project_val, dataset_val, region_val, connection_val, model_val, self.prompt_titles, self.prompt_descriptions, self.write_log
                 )
             )
 

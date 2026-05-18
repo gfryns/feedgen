@@ -2,7 +2,7 @@ from textual.app import ComposeResult
 from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar
 from textual.containers import Vertical, Horizontal
-from screens.dataset_screen import get_bq_client
+from services.bq_client import get_bq_client
 import asyncio
 import csv
 import os
@@ -75,7 +75,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
         id_col = self.state.get('id_col', 'id')
         
         try:
-            client = get_bq_client(self.state)
+            client = get_bq_client(self.state.get('project'))
             
             source_table = "InputFiltered"
             dest_table = "InputFilteredWeb"
