@@ -20,7 +20,7 @@ class TestProjectService:
         enable_apis("test-project-123", log_cb=mock_log)
 
         # Assert
-        assert mock_run.call_count == 4
+        assert mock_run.call_count == 5
         
         # Check that all APIs were called
         calls = mock_run.call_args_list
@@ -28,7 +28,8 @@ class TestProjectService:
             "serviceusage.googleapis.com",
             "aiplatform.googleapis.com",
             "bigquery.googleapis.com",
-            "bigqueryconnection.googleapis.com"
+            "bigqueryconnection.googleapis.com",
+            "cloudresourcemanager.googleapis.com"
         ]
         
         for i, api in enumerate(expected_apis):

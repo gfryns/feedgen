@@ -2,6 +2,7 @@ from google.cloud import bigquery
 from google.cloud import bigquery_connection_v1 as bq_connection
 from google.cloud import resourcemanager_v3
 from google.iam.v1 import policy_pb2
+import time
 from services.bq_client import get_bq_client
 
 def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str, connection_val: str, model_val: str, titles_prompt_path: str = "prompts/titles.txt", desc_prompt_path: str = "prompts/descriptions.txt", log_cb=print):
@@ -51,23 +52,31 @@ def deploy_dataset_and_model(project_val: str, dataset_val: str, region_val: str
     role = "roles/aiplatform.user"
     member = f"serviceAccount:{sa}"
     binding_exists = False
+    member_exists = False
+
     for binding in policy.bindings:
         if binding.role == role:
-            if member not in binding.members:
-                binding.members.append(member)
             binding_exists = True
+            if member in binding.members:
+                member_exists = True
+            else:
+                binding.members.append(member)
             break
+
     if not binding_exists:
         new_binding = policy_pb2.Binding(role=role, members=[member])
         policy.bindings.append(new_binding)
 
-    # Set policy using the correct request structure
-    from google.iam.v1 import iam_policy_pb2
-    request_set_iam = iam_policy_pb2.SetIamPolicyRequest(resource=project_name, policy=policy)
-    rm_client.set_iam_policy(request=request_set_iam)
-    
-    # 5. Create Model
-    log_cb(f"Creating Gemini Model ({model_val})...\n")
+    if not member_exists:
+        # Set policy using the correct request structure
+        from google.iam.v1 import iam_policy_pb2
+        request_set_iam = iam_policy_pb2.SetIamPolicyRequest(resource=project_name, policy=policy)
+        rm_client.set_iam_policy(request=request_set_iam)
+
+        log_cb("Waiting 30 seconds for IAM permissions to propagate...\n")
+        time.sleep(30)
+    else:
+        log_cb("IAM role already granted. Skipping delay.\n")
     sql_model = f"""
     CREATE OR REPLACE MODEL `{project_val}.{dataset_val}.GeminiModel`
       REMOTE WITH CONNECTION `{project_val}.{region_val}.{connection_val}`

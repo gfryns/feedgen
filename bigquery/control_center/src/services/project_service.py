@@ -8,7 +8,8 @@ def enable_apis(project_val: str, log_cb=print):
         "serviceusage.googleapis.com",
         "aiplatform.googleapis.com",
         "bigquery.googleapis.com",
-        "bigqueryconnection.googleapis.com"
+        "bigqueryconnection.googleapis.com",
+        "cloudresourcemanager.googleapis.com"
     ]
     
     for api in apis:
