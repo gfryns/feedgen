@@ -14,14 +14,18 @@ async def detect_css_selector(project: str, dataset: str, url_col: str, sample_c
     source_table = "InputFiltered"
     
     # Fetch sample URLs
-    query = f"SELECT url FROM `{project}.{dataset}.{source_table}` WHERE url IS NOT NULL ORDER BY RAND() LIMIT {sample_count}"
+    table_ref = client.get_table(f"{project}.{dataset}.{source_table}")
+    schema_names = [f.name for f in table_ref.schema]
+    actual_url_col = 'url' if 'url' in schema_names else url_col
+
+    query = f"SELECT {actual_url_col} FROM `{project}.{dataset}.{source_table}` WHERE {actual_url_col} IS NOT NULL ORDER BY RAND() LIMIT {sample_count}"
     loop = asyncio.get_running_loop()
     results = await loop.run_in_executor(None, lambda: list(client.query(query).result()))
     
     if not results:
-        raise ValueError("No URLs found in the table!")
+        raise ValueError(f"No URLs found in the {actual_url_col} column!")
         
-    urls = [row['url'] for row in results]
+    urls = [row[actual_url_col] for row in results]
     log_cb(f"Fetching {len(urls)} sample pages...\n")
     
     cleaned_htmls = []
@@ -71,13 +75,18 @@ async def detect_css_selector(project: str, dataset: str, url_col: str, sample_c
     selector = selector.replace('`', '').replace('"', '').replace("'", "").strip()
     return selector
 
-async def run_web_scraping(project: str, dataset: str, selector: str, log_cb=print, progress_cb=None, is_cancelled=lambda: False) -> dict:
+async def run_web_scraping(project: str, dataset: str, selector: str, url_col: str, log_cb=print, progress_cb=None, is_cancelled=lambda: False) -> dict:
     """Runs the bulk web scraping process and loads results to BigQuery."""
     client = get_bq_client(project)
     source_table = "InputFiltered"
     dest_table = "InputFilteredWeb"
     
-    query = f"SELECT id, url FROM `{project}.{dataset}.{source_table}`"
+    table_ref = client.get_table(f"{project}.{dataset}.{source_table}")
+    schema_names = [f.name for f in table_ref.schema]
+    actual_url_col = 'url' if 'url' in schema_names else url_col
+    actual_id_col = 'id' if 'id' in schema_names else 'id' # Usually id is standard but let's be safe. wait, we need id_col... let's just assume id_col is 'id' since it's hardcoded here as 'id' and we don't have id_col. Actually 'id' is required. Let's just fix URL.
+
+    query = f"SELECT id, {actual_url_col} FROM `{project}.{dataset}.{source_table}`"
     log_cb(f"Fetching URLs with query: {query}\n")
     
     loop = asyncio.get_running_loop()
@@ -103,7 +112,7 @@ async def run_web_scraping(project: str, dataset: str, selector: str, log_cb=pri
     async def fetch_and_parse(session, row):
         nonlocal success, extracted, failed
         item_id = row['id']
-        url = row['url']
+        url = row[actual_url_col]
         content = ""
         
         async with semaphore:

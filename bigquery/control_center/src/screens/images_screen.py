@@ -163,6 +163,7 @@ class ImagesScreen(ControlCenterBaseScreen):
         dataset = self.state.get('dataset')
         connection_val = self.state.get('connection', 'feedgen_connection')
         region_val = self.state.get('region', 'EU')
+        img_url_col = self.state.get('image_col')
         
         try:
             def progress_cb(total=None, progress=None, advance=None):
@@ -172,7 +173,7 @@ class ImagesScreen(ControlCenterBaseScreen):
                     self.app.call_from_thread(self.query_one("#progress-bar").advance, advance)
                     
             result = img_srv.run_image_processing(
-                project, dataset, bucket_name, connection_val, region_val,
+                project, dataset, bucket_name, connection_val, region_val, img_url_col,
                 log_cb=self.write_log,
                 progress_cb=progress_cb,
                 is_cancelled=lambda: self.app._exit

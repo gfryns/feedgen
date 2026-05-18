@@ -53,6 +53,7 @@ class TestScrapingService:
         
         mock_row = {'id': '1', 'url': 'https://example.com/p1'}
         mock_bq.query.return_value.result.return_value = [mock_row]
+        mock_bq.get_table.return_value.schema = []
         
         # Mock aiohttp response
         mock_resp = AsyncMock()
@@ -68,7 +69,7 @@ class TestScrapingService:
         mock_exists.return_value = True
         
         # Act
-        result = await run_web_scraping("test-proj", "test_ds", ".desc")
+        result = await run_web_scraping("test-proj", "test_ds", ".desc", "url")
         
         # Assert
         assert result['total'] == 1
@@ -84,9 +85,10 @@ class TestScrapingService:
         mock_bq = MagicMock()
         mock_get_bq_client.return_value = mock_bq
         mock_bq.query.return_value.result.return_value = []
+        mock_bq.get_table.return_value.schema = []
         
         # Act & Assert
-        with pytest.raises(ValueError, match="No URLs found in the table!"):
+        with pytest.raises(ValueError, match="No URLs found in the url column!"):
             await detect_css_selector("test-proj", "test_ds", "url", 1)
 
     @pytest.mark.asyncio
@@ -120,9 +122,10 @@ class TestScrapingService:
         
         mock_row = {'id': '1', 'url': 'https://example.com/p1'}
         mock_bq.query.return_value.result.return_value = [mock_row]
+        mock_bq.get_table.return_value.schema = []
         
         # Act
-        result = await run_web_scraping("test-proj", "test_ds", ".desc", is_cancelled=lambda: True)
+        result = await run_web_scraping("test-proj", "test_ds", ".desc", "url", is_cancelled=lambda: True)
         
         # Assert
         assert result.get('cancelled') == True

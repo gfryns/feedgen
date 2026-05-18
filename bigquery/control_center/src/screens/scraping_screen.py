@@ -90,6 +90,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
         
         project = self.state.get('project')
         dataset = self.state.get('dataset')
+        url_col = self.state.get('url_col')
         
         try:
             def progress_cb(total=None, progress=None, advance=None):
@@ -99,7 +100,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
                     self.app.call_from_thread(self.query_one("#progress-bar").advance, advance)
                     
             result = await run_web_scraping(
-                project, dataset, selector, 
+                project, dataset, selector, url_col,
                 log_cb=self.write_log, 
                 progress_cb=progress_cb, 
                 is_cancelled=lambda: self.app._exit

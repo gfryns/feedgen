@@ -208,6 +208,11 @@ class GenerationScreen(ControlCenterBaseScreen):
         use_images = self.state.get_step_status('images') == 'Completed'
         web_done = self.state.get_step_status('web') == 'Completed'
         
+        id_col = self.state.get('id_col', 'id')
+        title_col = self.state.get('title_col', 'title')
+        desc_col = self.state.get('desc_col', 'description')
+        image_col = self.state.get('image_col', 'image_url')
+        
         try:
             def progress_cb(total=None, progress=None, step_text=None):
                 if step_text is not None:
@@ -219,6 +224,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                     
             result = gen_srv.run_generation_process(
                 project, dataset, lang, workers, output_table, gen_titles, gen_desc, debug, bucket, use_images, web_done,
+                id_col, title_col, desc_col, image_col,
                 log_cb=self.write_log,
                 progress_cb=progress_cb,
                 is_cancelled=lambda: self.app._exit

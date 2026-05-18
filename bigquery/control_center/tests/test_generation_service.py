@@ -11,20 +11,23 @@ class TestGenerationService:
         # Arrange
         mock_bq = MagicMock()
         mock_get_bq_client.return_value = mock_bq
-        
+        mock_bq.get_table.return_value.schema = [MagicMock(name='id'), MagicMock(name='title')]
+        mock_bq.get_table.return_value.schema[0].name = 'id'
+        mock_bq.get_table.return_value.schema[1].name = 'title'
+
         # Mock job
         mock_job = MagicMock()
         mock_job.done.return_value = True
         mock_job.exception.return_value = None
         mock_bq.query.return_value = mock_job
-        
+
         # Mock results for result() calls
         mock_count_res = MagicMock()
         mock_count_res.total = 10
-        
+
         mock_processed_res = MagicMock()
         mock_processed_res.processed = 10
-        
+
         mock_job.result.side_effect = [
             MagicMock(), # create table
             MagicMock(), # deploy procedures
@@ -32,13 +35,13 @@ class TestGenerationService:
             [mock_count_res], # count query
             [mock_processed_res] # processed query
         ]
-        
+
         # Act
         result = run_generation_process(
-            "test-proj", "test_ds", "en", 1, "OutputTable", 
-            True, False, False, "test-bucket", False, True
-        )
-        
+            "test-proj", "test_ds", "en", 1, "OutputTable",
+            True, False, False, "test-bucket", False, True,
+            "id", "title", "description", "image_url"
+        )        
         # Assert
         assert result['success'] == True
         assert result['total_rows'] == 10
@@ -51,12 +54,14 @@ class TestGenerationService:
         mock_bq = MagicMock()
         mock_get_bq_client.return_value = mock_bq
         
+        mock_bq.get_table.return_value.schema = []
+
         # Act
         result = run_generation_process(
-            "test-proj", "test_ds", "en", 1, "OutputTable", 
-            False, False, False, "test-bucket", False, True
-        )
-        
+            "test-proj", "test_ds", "en", 1, "OutputTable",
+            False, False, False, "test-bucket", False, True,
+            "id", "title", "description", "image_url"
+        )        
         # Assert
         assert result['success'] == True
         assert 'message' in result
@@ -78,12 +83,14 @@ class TestGenerationService:
         mock_count_res.total = 10
         mock_job.result.return_value = [mock_count_res]
         
+        mock_bq.get_table.return_value.schema = []
+
         # Act
         result = run_generation_process(
-            "test-proj", "test_ds", "en", 1, "OutputTable", 
-            True, False, False, "test-bucket", False, False # web_done = False
-        )
-        
+            "test-proj", "test_ds", "en", 1, "OutputTable",
+            True, False, False, "test-bucket", False, False, # web_done = False
+            "id", "title", "description", "image_url"
+        )        
         # Assert
         assert result['success'] == True
 
@@ -120,11 +127,13 @@ class TestGenerationService:
             MagicMock(result=MagicMock(return_value=[mock_processed_res])) # processed query
         ]
         
+        mock_bq.get_table.return_value.schema = []
+
         # Act
         result = run_generation_process(
-            "test-proj", "test_ds", "en", 1, "OutputTable", 
-            True, False, False, "test-bucket", False, True
-        )
-        
+            "test-proj", "test_ds", "en", 1, "OutputTable",
+            True, False, False, "test-bucket", False, True,
+            "id", "title", "description", "image_url"
+        )        
         # Assert
         assert result['success'] == True

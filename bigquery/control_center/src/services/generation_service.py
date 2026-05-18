@@ -4,7 +4,7 @@ import yaml
 from services.bq_client import get_bq_client
 from google.cloud import bigquery
 
-def run_generation_process(project: str, dataset: str, lang: str, workers: int, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, log_cb=print, progress_cb=None, is_cancelled=lambda: False):
+def run_generation_process(project: str, dataset: str, lang: str, workers: int, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, log_cb=print, progress_cb=None, is_cancelled=lambda: False):
     """Runs the generation process by calling stored procedures in BigQuery."""
     client = get_bq_client(project)
     
@@ -16,21 +16,36 @@ def run_generation_process(project: str, dataset: str, lang: str, workers: int, 
         source_id = f"{project}.{dataset}.InputFiltered"
         web_id = f"{project}.{dataset}.InputFilteredWeb"
         
+        table_ref = client.get_table(source_id)
+        schema_names = [f.name for f in table_ref.schema]
+        
+        actual_id_col = 'id' if 'id' in schema_names else id_col
+        actual_title_col = 'title' if 'title' in schema_names else title_col
+        actual_desc_col = 'description' if 'description' in schema_names else desc_col
+        
+        # Determine image_url string. If not in schema and image_col was skipped, we use CAST(NULL AS STRING)
+        if 'image_url' in schema_names:
+            img_sel = "F.image_url"
+        elif image_col and image_col != 'skip' and image_col in schema_names:
+            img_sel = f"F.{image_col} AS image_url"
+        else:
+            img_sel = "CAST(NULL AS STRING) AS image_url"
+            
         if web_done:
             sql_input = f"""
             CREATE OR REPLACE TABLE `{input_proc_id}` AS
             SELECT
-              F.id, F.title, F.description, F.image_url,
+              F.{actual_id_col} AS id, F.{actual_title_col} AS title, F.{actual_desc_col} AS description, {img_sel},
               W.content AS webpage_content
             FROM `{source_id}` AS F
-            LEFT JOIN `{web_id}` AS W USING (id);
+            LEFT JOIN `{web_id}` AS W ON F.{actual_id_col} = W.id;
             """
         else:
             log_cb("Web scraping was not completed. Skipping join with webpage content.\n")
             sql_input = f"""
             CREATE OR REPLACE TABLE `{input_proc_id}` AS
             SELECT
-              F.id, F.title, F.description, F.image_url,
+              F.{actual_id_col} AS id, F.{actual_title_col} AS title, F.{actual_desc_col} AS description, {img_sel},
               CAST(NULL AS STRING) AS webpage_content
             FROM `{source_id}` AS F;
             """
@@ -71,7 +86,7 @@ def run_generation_process(project: str, dataset: str, lang: str, workers: int, 
         sql_output = f"""
         CREATE OR REPLACE TABLE `{output_id}` AS
         SELECT
-          id,
+          {actual_id_col} AS id,
           CAST(NULL AS STRING) AS title,
           CAST(NULL AS STRING) AS description,
           0 AS tries,

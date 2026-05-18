@@ -54,17 +54,22 @@ def delete_images(project: str, dataset: str, bucket_name: str, progress_cb=None
     
     return count
 
-def run_image_processing(project: str, dataset: str, bucket_name: str, connection_val: str, region_val: str, log_cb=print, progress_cb=None, is_cancelled=lambda: False):
+def run_image_processing(project: str, dataset: str, bucket_name: str, connection_val: str, region_val: str, img_url_col: str, log_cb=print, progress_cb=None, is_cancelled=lambda: False):
     """Downloads images and creates an external table in BigQuery."""
     storage_client = storage.Client(project=project)
     bucket = storage_client.get_bucket(bucket_name)
     
     client = get_bq_client(project)
-    query = f"SELECT DISTINCT image_url FROM `{project}.{dataset}.InputFiltered` WHERE image_url IS NOT NULL"
+    
+    table_ref = client.get_table(f"{project}.{dataset}.InputFiltered")
+    schema_names = [f.name for f in table_ref.schema]
+    actual_img_url_col = 'image_url' if 'image_url' in schema_names else img_url_col
+
+    query = f"SELECT DISTINCT {actual_img_url_col} FROM `{project}.{dataset}.InputFiltered` WHERE {actual_img_url_col} IS NOT NULL"
     log_cb(f"Fetching image URLs...\n")
     
     results = list(client.query(query).result())
-    urls = [row['image_url'] for row in results]
+    urls = [row[actual_img_url_col] for row in results]
     log_cb(f"Found {len(urls)} unique image URLs.\n")
     
     log_cb("Analyzing existing images in bucket...\n")

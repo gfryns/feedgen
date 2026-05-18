@@ -77,6 +77,7 @@ class TestImagesService:
         
         mock_row = {'image_url': 'https://example.com/img1.jpg'}
         mock_bq.query.return_value.result.return_value = [mock_row]
+        mock_bq.get_table.return_value.schema = []
         
         # Mock requests
         mock_resp = MagicMock()
@@ -89,7 +90,7 @@ class TestImagesService:
         mock_bucket.blob.return_value = mock_blob
         
         # Act
-        result = run_image_processing("test-proj", "test_ds", "test-bucket", "conn", "EU")
+        result = run_image_processing("test-proj", "test_ds", "test-bucket", "conn", "EU", "image_url")
         
         # Assert
         assert result['total'] == 1
