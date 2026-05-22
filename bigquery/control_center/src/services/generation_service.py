@@ -7,6 +7,10 @@ from google.cloud import bigquery
 from google.cloud import aiplatform
 from google.cloud import storage
 import os
+import logging
+
+# Suppress chatty Vertex AI SDK logs
+logging.getLogger("google.cloud.aiplatform").setLevel(logging.WARNING)
 
 def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=False):
     """Updates state.json with ongoing generation details."""
@@ -45,7 +49,11 @@ def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancell
         if is_cancelled():
             log_cb("Job cancelled by user. Attempting to cancel Vertex AI jobs...\n")
             for t, j in jobs.items():
-                j.cancel()
+                try:
+                    j.cancel()
+                except Exception: pass
+                if progress_cb:
+                    progress_cb(target=t, state="CANCELLED", total=0)
             update_ongoing_state(clear=True)
             return {'cancelled': True}
             
@@ -225,6 +233,9 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
         # except Exception as e:
         #     log_cb(f"Warning: Failed to clean up GCS files for {t}: {e}\n")
         log_cb(f"Skipping GCS cleanup for debugging.\n")
+        
+    # Clear ongoing state after successful merge of all targets
+    update_ongoing_state(clear=True)
 
 def resume_generation_process(project, dataset, bucket, output_table, job_ids, log_cb, progress_cb, is_cancelled):
     """Resumes a generation process by polling existing jobs."""
@@ -258,7 +269,7 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
         
     # Wait for jobs and get prefixes
     if progress_cb:
-        progress_cb(step_text="Resuming jobs in Vertex AI...")
+        progress_cb(step_text="Resuming jobs monitoring...")
         
     target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows)
     
@@ -267,7 +278,6 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
         
     # Merge results
     load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client)
-    update_ongoing_state(clear=True)
     
     return {'success': True, 'total_rows': total_rows}
 
@@ -509,7 +519,6 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
             
         # Call the separated merge function
         load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client)
-        update_ongoing_state(clear=True)
             
         return {'success': True, 'total_rows': len(rows)}
         

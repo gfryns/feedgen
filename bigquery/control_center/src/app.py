@@ -85,6 +85,29 @@ class ControlCenterApp(App):
             self.state.set('auto_resume', True, save=False)
             self.route_to_step('gen')
         else:
+            # Cancel existing jobs in background to avoid freezing UI
+            def cancel_existing_jobs():
+                ongoing = self.state.get('ongoing_generation')
+                if ongoing:
+                    job_ids = ongoing.get('job_ids', {})
+                    from google.cloud import aiplatform
+                    import re
+                    
+                    for t, job_id in job_ids.items():
+                        try:
+                            # Extract location from job_id
+                            match = re.search(r'locations/([^/]+)/', job_id)
+                            loc = match.group(1) if match else "global"
+                            
+                            aiplatform.init(project=self.state.get('project'), location=loc)
+                            job = aiplatform.BatchPredictionJob(job_id)
+                            job.cancel()
+                        except Exception:
+                            pass
+                            
+            import threading
+            threading.Thread(target=cancel_existing_jobs, daemon=True).start()
+            
             from services.generation_service import update_ongoing_state
             update_ongoing_state(clear=True)
         

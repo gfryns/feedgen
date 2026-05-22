@@ -178,6 +178,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")
                 yield Button("Back to Menu", id="back-btn")
+                yield Button("Cancel Generation", variant="error", id="cancel-btn", disabled=True)
                 
             yield Label("", id="status-label")
             
@@ -217,23 +218,30 @@ class GenerationScreen(ControlCenterBaseScreen):
             
         job_ids = ongoing.get('job_ids', {})
         
+        # Enable cancel button for resumed jobs
+        self.query_one("#cancel-btn", Button).disabled = False
+        self.app.is_cancelled = False
+        
         def progress_cb(target=None, state=None, start_time=None, step_text=None, success_count=0, failed_count=0, total=0):
             if step_text is not None:
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[bold]{step_text}[/]")
             if target is not None:
                 label_id = f"#{target.lower()}-job-label"
                 text = f"{target}: {state}"
-                if total > 0:
-                    completed = success_count + failed_count
-                    text += f" ({completed}/{total} completed)"
-                    if failed_count > 0:
-                        text += f" [{failed_count} failed]"
-                if start_time:
-                    text += f" (Started: {start_time})"
-                import time
-                current_time = time.strftime("%H:%M:%S")
-                text += f" [dim](Last checked: {current_time})[/dim]"
+                if state not in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                    if total > 0:
+                        completed = success_count + failed_count
+                        text += f" ({completed}/{total} completed)"
+                        if failed_count > 0:
+                            text += f" [{failed_count} failed]"
+                    if start_time:
+                        text += f" (Started: {start_time})"
+                    import time
+                    current_time = time.strftime("%H:%M:%S")
+                    text += f" [dim](Last checked: {current_time})[/dim]"
                 self.app.call_from_thread(self.show_job_label, label_id, text)
+                if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                    self.app.call_from_thread(self.set_timer, 15, lambda: self.hide_job_label(label_id))
                 
         def run_resume_thread():
             project = self.state.get('project')
@@ -252,6 +260,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                 )
                 
                 if result.get('cancelled'):
+                    self.app.call_from_thread(self.query_one("#status-label", Label).update, "[#E69F00]Jobs cancelled by user.[/]")
                     return
                     
                 self.state.set_step_status('gen', 'Completed')
@@ -277,6 +286,8 @@ class GenerationScreen(ControlCenterBaseScreen):
                 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
+            self.query_one("#cancel-btn", Button).disabled = False
+            self.app.is_cancelled = False
             lang = self.query_one("#language").value
             output_table = self.query_one("#output-table").value
             
@@ -298,6 +309,11 @@ class GenerationScreen(ControlCenterBaseScreen):
             debug = getattr(self.state, 'debug', False)
             self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, debug, model_val), thread=True)
             
+        elif event.button.id == "cancel-btn":
+            self.app.is_cancelled = True
+            self.notify("Cancellation requested...", severity="warning")
+            event.button.disabled = True
+            
         elif event.button.id == "toggle-titles-btn":
             self.gen_titles = not self.gen_titles
             if self.gen_titles:
@@ -316,6 +332,12 @@ class GenerationScreen(ControlCenterBaseScreen):
         label = self.query_one(label_id, Label)
         label.update(text)
         label.styles.display = "block"
+        
+    def hide_job_label(self, label_id: str):
+        try:
+            label = self.query_one(label_id, Label)
+            label.styles.display = "none"
+        except Exception: pass
         
 
                 
@@ -359,17 +381,20 @@ class GenerationScreen(ControlCenterBaseScreen):
                 if target is not None:
                     label_id = f"#{target.lower()}-job-label"
                     text = f"{target}: {state}"
-                    if total > 0:
-                        completed = success_count + failed_count
-                        text += f" ({completed}/{total} completed)"
-                        if failed_count > 0:
-                            text += f" [{failed_count} failed]"
-                    if start_time:
-                        text += f" (Started: {start_time})"
-                    import time
-                    current_time = time.strftime("%H:%M:%S")
-                    text += f" [dim](Last checked: {current_time})[/dim]"
+                    if state not in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                        if total > 0:
+                            completed = success_count + failed_count
+                            text += f" ({completed}/{total} completed)"
+                            if failed_count > 0:
+                                text += f" [{failed_count} failed]"
+                        if start_time:
+                            text += f" (Started: {start_time})"
+                        import time
+                        current_time = time.strftime("%H:%M:%S")
+                        text += f" [dim](Last checked: {current_time})[/dim]"
                     self.app.call_from_thread(self.show_job_label, label_id, text)
+                    if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                        self.app.call_from_thread(self.set_timer, 15, lambda: self.hide_job_label(label_id))
                     
             result = gen_srv.run_generation_process(
                 project, dataset, lang, output_table, gen_titles, gen_desc, debug, images_bucket, use_images, web_done,
@@ -383,6 +408,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             )
             
             if result.get('cancelled'):
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[#E69F00]Jobs cancelled by user.[/]")
                 return
                 
             self.state.set_step_status('gen', 'Completed')
