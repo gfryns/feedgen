@@ -3,8 +3,7 @@ from textual.widgets import Header, Footer, Static, Label, ListView, ListItem, D
 from textual.containers import Horizontal, Vertical, Container
 from textual import on
 from state_manager import ControlCenterStateManager
-from screens.project_screen import ProjectScreen
-from screens.dataset_screen import DatasetScreen
+from screens.setup_screen import SetupScreen
 from screens.source_screen import SourceScreen
 from screens.options_screen import OptionsScreen
 from screens.scraping_screen import ScrapingScreen
@@ -31,28 +30,33 @@ class ControlCenterApp(App):
             with Vertical(id="sidebar"):
                 yield Label("WIZARD STEPS", id="sidebar-title")
                 with ListView(id="steps-list"):
-                    yield ListItem(Static("1. Cloud Project Setup", markup=True), id="project")
-                    yield ListItem(Static("2. BigQuery Setup", markup=True), id="dataset")
-                    yield ListItem(Static("3. Input Setup", markup=True), id="input_header")
-                    yield ListItem(Static("   3a. Source Feed", markup=True), id="source")
-                    yield ListItem(Static("   3b. Feed Filtering", markup=True), id="filter")
-                    yield ListItem(Static("   3c. Import Product Pages Infos", markup=True), id="web")
-                    yield ListItem(Static("   3d. Import Product Images", markup=True), id="images")
-                    yield ListItem(Static("   3e. Select Examples", markup=True), id="examples")
-                    yield ListItem(Static("4. Generation options", markup=True), id="gen")
-                    yield ListItem(Static("5. Export to GMC", markup=True), id="export")
+                    yield ListItem(Static("1. Environment Setup", markup=True), id="project")
+                    yield ListItem(Static("2. Input Setup", markup=True), id="input_header")
+                    yield ListItem(Static("   2a. Source Feed", markup=True), id="source")
+                    yield ListItem(Static("   2b. Feed Filtering", markup=True), id="filter")
+                    yield ListItem(Static("   2c. Import Product Pages Infos", markup=True), id="web")
+                    yield ListItem(Static("   2d. Import Product Images", markup=True), id="images")
+                    yield ListItem(Static("   2e. Select Examples", markup=True), id="examples")
+                    yield ListItem(Static("3. Generation options", markup=True), id="gen")
+                    yield ListItem(Static("4. Export to GMC", markup=True), id="export")
             with Container(id="main-content"):
                 yield Static(self.get_art(), id="dashboard-art", markup=True)
                 yield Label("--- Dashboard ---", id="dashboard-title", classes="bold")
                 yield DataTable(id="dashboard-table")
         yield Footer()
         
+    def action_quit(self) -> None:
+        """Handle quit action and set cancel flag."""
+        self.is_cancelled = True
+        self.exit()
+
     def on_mount(self) -> None:
         """Initialize state manager and update sidebar."""
         import sys
         import os
         
         self.state = ControlCenterStateManager()
+        self.is_cancelled = False
         self.state.debug = '--debug' in sys.argv
         
         if self.state.debug:
@@ -69,6 +73,20 @@ class ControlCenterApp(App):
         
         self.update_sidebar_status()
         self.update_dashboard()
+        
+        # Check for ongoing generation to resume
+        ongoing = self.state.get('ongoing_generation')
+        if ongoing:
+            from screens.resume_modal import ResumeModal
+            self.push_screen(ResumeModal(), self.on_resume_decision)
+            
+    def on_resume_decision(self, resume: bool) -> None:
+        if resume:
+            self.state.set('auto_resume', True, save=False)
+            self.route_to_step('gen')
+        else:
+            from services.generation_service import update_ongoing_state
+            update_ongoing_state(clear=True)
         
     def get_computed_status(self, step: str) -> str:
         """Calculate the display status based on state and dependencies."""
@@ -106,15 +124,14 @@ class ControlCenterApp(App):
     def update_sidebar_status(self) -> None:
         """Update the status labels in the sidebar."""
         base_texts = {
-            'project': "1. Cloud Project Setup",
-            'dataset': "2. BigQuery Setup",
-            'source': "   3a. Source Feed",
-            'filter': "   3b. Feed Filtering",
-            'web': "   3c. Import Product Pages Infos",
-            'images': "   3d. Import Product Images",
-            'examples': "   3e. Select Examples",
-            'gen': "4. Generation options",
-            'export': "5. Export to GMC"
+            'project': "1. Environment Setup",
+            'source': "   2a. Source Feed",
+            'filter': "   2b. Feed Filtering",
+            'web': "   2c. Import Product Pages Infos",
+            'images': "   2d. Import Product Images",
+            'examples': "   2e. Select Examples",
+            'gen': "3. Generation options",
+            'export': "4. Export to GMC"
         }
         
         for step, base_text in base_texts.items():
@@ -164,15 +181,14 @@ class ControlCenterApp(App):
         dataset = state.get('dataset', 'N/A')
         
         steps_data = [
-            ('project', '1. Cloud Project Setup', f"Project: {project}"),
-            ('dataset', '2. BigQuery Setup', f"Dataset: {dataset} ({state.get('region', 'N/A')})"),
-            ('source', '3a. Source Feed', f"Raw Table: {state.get('raw_table', 'N/A')}"),
-            ('filter', '3b. Feed Filtering', f"Columns: {state.get('include_cols', 'N/A')}"),
-            ('web', '3c. Import Product Pages', f"Selector: {state.get('selector', 'N/A')}"),
-            ('images', '3d. Import Product Images', f"Bucket: {state.get('bucket', 'N/A')}"),
-            ('examples', '3e. Select Examples', f"Sheet: {state.get('sheet_name', 'N/A')}"),
-            ('gen', '4. Generation options', f"Lang: {state.get('language', 'N/A')} | Out: {project}.{dataset}.{state.get('output_table', 'Output')} | Count: {state.get('gen_count', 'N/A')}"),
-            ('export', '5. Export to GMC', f"Type: {state.get('feed_type', 'supplemental')} | Target: {project}.{dataset}.{state.get('export_table', 'ExportGMC')}")
+            ('project', '1. Environment Setup', f"Project: {project} | Dataset: {dataset}"),
+            ('source', '2a. Source Feed', f"Raw Table: {state.get('raw_table', 'N/A')}"),
+            ('filter', '2b. Feed Filtering', f"Columns: {state.get('include_cols', 'N/A')}"),
+            ('web', '2c. Import Product Pages', f"Selector: {state.get('selector', 'N/A')}"),
+            ('images', '2d. Import Product Images', f"Bucket: {state.get('bucket', 'N/A')}"),
+            ('examples', '2e. Select Examples', f"Sheet: {state.get('sheet_name', 'N/A')}"),
+            ('gen', '3. Generation options', f"Lang: {state.get('language', 'N/A')} | Out: {project}.{dataset}.{state.get('output_table', 'Output')}"),
+            ('export', '4. Export to GMC', f"Type: {state.get('feed_type', 'supplemental')} | Target: {project}.{dataset}.{state.get('export_table', 'ExportGMC')}")
         ]
         
         for step_id, title, details in steps_data:
@@ -194,9 +210,7 @@ class ControlCenterApp(App):
             return
             
         if step_id == 'project':
-            self.push_screen(ProjectScreen(self.state), callback=self.on_config_screen_result)
-        elif step_id == 'dataset':
-            self.push_screen(DatasetScreen(self.state), callback=self.on_config_screen_result)
+            self.push_screen(SetupScreen(self.state), callback=self.on_config_screen_result)
         elif step_id == 'source':
             self.push_screen(SourceScreen(self.state), callback=self.on_config_screen_result)
         elif step_id == 'filter':

@@ -34,7 +34,20 @@ class ImagesScreen(ControlCenterBaseScreen):
                     yield Label(f"Image URL Column: {image_col}")
                     
                     yield Label("GCS Bucket Name:")
-                    yield Input(value=self.state.get('bucket', f"{self.state.get('project')}-images"), id="bucket")
+                    
+                    project = self.state.get('project')
+                    bucket = f"{project}-feedgen"
+                    try:
+                        import yaml
+                        with open('config.yaml', 'r') as f:
+                            config = yaml.safe_load(f)
+                            buckets_config = config.get('buckets', {})
+                            if buckets_config.get('name'):
+                                bucket = buckets_config.get('name').replace("${project}", project)
+                    except Exception:
+                        pass
+                        
+                    yield Input(value=self.state.get('bucket', bucket), id="bucket")
                     
                     yield Label("Bucket Status: Loading...", id="bucket-info")
                 

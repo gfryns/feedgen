@@ -79,6 +79,11 @@ Collapsible {
     padding: 0 1;
 }
 
+.col4 {
+    width: 25%;
+    padding: 0 1;
+}
+
 .card {
     border: round $primary;
     padding: 1 2;
@@ -120,3 +125,44 @@ Collapsible {
 #selector-row {
     align-vertical: middle;
 }
+
+.job-label {
+    display: none;
+    margin-top: 1;
+    text-style: bold;
+}
+
+/* Modal Styles */
+ResumeModal {
+    align: center middle;
+}
+
+Grid#dialog {
+    grid-size: 2;
+    grid-gutter: 1;
+    grid-rows: auto auto;
+    border: thick $primary;
+    background: $surface;
+    padding: 1;
+    width: 60;
+    height: auto;
+    min-height: 10;
+}
+
+#question {
+    column-span: 2;
+    height: auto;
+    content-align: center middle;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+#resume {
+    width: 100%;
+}
+
+#fresh {
+    width: 100%;
+}
+
+

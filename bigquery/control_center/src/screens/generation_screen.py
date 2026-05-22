@@ -3,7 +3,6 @@ from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar, Select
 from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
-import asyncio
 import services.generation_service as gen_srv
 
 class GenerationScreen(ControlCenterBaseScreen):
@@ -129,6 +128,14 @@ class GenerationScreen(ControlCenterBaseScreen):
         
         self.workers_options = [("1", 1), ("2", 2), ("3", 3), ("4", 4), ("5", 5)]
         
+        try:
+            import yaml
+            with open('config.yaml', 'r') as f:
+                config = yaml.safe_load(f)
+                self.models = [(m['label'], m['value']) for m in config.get('models', [])]
+        except Exception:
+            self.models = [("Gemini 2.5 Flash", "gemini-2.5-flash")]
+            
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="form-container"):
@@ -136,53 +143,160 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             with Container(classes="card"):
                 yield Label("Generation Configuration", id="gen-config-title")
-                with Horizontal(id="gen-row-1"):
-                    with Vertical(classes="col3"):
-                        yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
-                    with Vertical(classes="col3"):
-                        yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
-                    with Vertical(classes="col3"):
-                        yield Label("Language:")
-                        default_lang = self.state.get('language', 'English (en)')
-                        yield Select(self.languages, value=default_lang, id="language")
                 
+                saved_model = self.state.get('model', 'gemini-2.5-flash')
+                model_options = [m[1] for m in self.models]
+                
+                if saved_model in model_options:
+                    select_value = saved_model
+                    custom_value = ""
+                else:
+                    select_value = "other"
+                    custom_value = saved_model
+                    
+                default_lang = self.state.get('language', 'English (en)')
+
+                with Horizontal(id="gen-row-1"):
+                    with Vertical(classes="col4"):
+                        yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
+                    with Vertical(classes="col4"):
+                        yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
+                    with Vertical(classes="col4"):
+                        yield Label("Gemini Model Version:")
+                        yield Select(self.models, value=select_value, id="model")
+                    with Vertical(classes="col4"):
+                        yield Label("Language:")
+                        yield Select(self.languages, value=default_lang, id="language")
+                        
                 with Horizontal(id="gen-row-2"):
-                    with Vertical(id="table-col"):
+                    with Vertical(classes="col"):
                         yield Label("Destination Table Name:")
                         yield Input(value=self.state.get('output_table', 'Output'), id="output-table")
-                    with Vertical(id="workers-col"):
-                        yield Label("Workers:")
-                        yield Select(self.workers_options, value=self.state.get('workers', 5), id="workers")
+                    with Vertical(classes="col"):
+                        yield Input(value=custom_value, placeholder="Enter custom model ID", id="custom-model")
             
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")
                 yield Button("Back to Menu", id="back-btn")
                 
             yield Label("", id="status-label")
-            yield ProgressBar(id="progress-bar")
+            
+            yield Label("Titles: Not started", id="titles-job-label", classes="job-label")
+            yield Label("Descriptions: Not started", id="descriptions-job-label", classes="job-label")
             
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):
                 yield Log(id="process-logs")
                 yield Button("Copy Logs to Clipboard", id="copy-logs-btn")
         yield Footer()
         
+    def on_mount(self) -> None:
+        saved_model = self.state.get('model', 'gemini-2.5-flash')
+        model_options = [m[1] for m in self.models]
+        
+        if saved_model not in model_options:
+            self.query_one("#custom-model").styles.display = "block"
+        else:
+            self.query_one("#custom-model").styles.display = "none"
+            
+        # Auto-resume if triggered from app start
+        if self.state.get('auto_resume'):
+            self.state.set('auto_resume', False, save=False)
+            self.run_resume()
+            
+    def on_resume_decision(self, resume: bool) -> None:
+        if resume:
+            self.run_resume()
+        else:
+            from services.generation_service import update_ongoing_state
+            update_ongoing_state(clear=True)
+            
+    def run_resume(self) -> None:
+        ongoing = self.state.get('ongoing_generation')
+        if not ongoing:
+            return
+            
+        job_ids = ongoing.get('job_ids', {})
+        
+        def progress_cb(target=None, state=None, start_time=None, step_text=None, success_count=0, failed_count=0, total=0):
+            if step_text is not None:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[bold]{step_text}[/]")
+            if target is not None:
+                label_id = f"#{target.lower()}-job-label"
+                text = f"{target}: {state}"
+                if total > 0:
+                    completed = success_count + failed_count
+                    text += f" ({completed}/{total} completed)"
+                    if failed_count > 0:
+                        text += f" [{failed_count} failed]"
+                if start_time:
+                    text += f" (Started: {start_time})"
+                import time
+                current_time = time.strftime("%H:%M:%S")
+                text += f" [dim](Last checked: {current_time})[/dim]"
+                self.app.call_from_thread(self.show_job_label, label_id, text)
+                
+        def run_resume_thread():
+            project = self.state.get('project')
+            dataset = self.state.get('dataset')
+            bucket = self.state.get('bucket')
+            output_table = self.state.get('output_table')
+            
+            try:
+                import services.generation_service as gen_srv
+                result = gen_srv.resume_generation_process(
+                    project, dataset, bucket, output_table,
+                    job_ids,
+                    log_cb=self.write_log,
+                    progress_cb=progress_cb,
+                    is_cancelled=lambda: getattr(self.app, 'is_cancelled', False)
+                )
+                
+                if result.get('cancelled'):
+                    return
+                    
+                self.state.set_step_status('gen', 'Completed')
+                self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[green]Generation completed successfully![/]")
+                
+            except Exception as e:
+                self.write_log(f"Error in resume: {e}\n")
+                self.app.call_from_thread(self.notify, f"Error: {e}", severity="error")
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[red]Error: {e}[/]")
+                
+        import threading
+        threading.Thread(target=run_resume_thread, daemon=True).start()
+            
+
+            
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "model":
+            if event.value == "other":
+                self.query_one("#custom-model").styles.display = "block"
+            else:
+                self.query_one("#custom-model").styles.display = "none"
+                
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
             lang = self.query_one("#language").value
-            workers = int(self.query_one("#workers").value)
             output_table = self.query_one("#output-table").value
             
+            model_val = self.query_one("#model").value
+            if model_val == "other":
+                model_val = self.query_one("#custom-model").value
+                if not model_val:
+                    self.notify("Custom model ID is required!", severity="error")
+                    return
+                    
             self.state.update_data({
                 'language': lang,
-                'workers': workers,
-                'output_table': output_table
+                'output_table': output_table,
+                'model': model_val
             })
             
             self.query_one("#logs-collapsible").collapsed = False
-            self.query_one("#progress-bar").styles.display = "block"
             
             debug = getattr(self.state, 'debug', False)
-            self.run_worker(lambda: self.run_generation(lang, workers, output_table, self.gen_titles, self.gen_desc, debug), thread=True)
+            self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, debug, model_val), thread=True)
             
         elif event.button.id == "toggle-titles-btn":
             self.gen_titles = not self.gen_titles
@@ -197,14 +311,39 @@ class GenerationScreen(ControlCenterBaseScreen):
                 event.button.label = "[green]✔[/] Generate Descriptions"
             else:
                 event.button.label = "[red]✘[/] Skip Descriptions"
+
+    def show_job_label(self, label_id: str, text: str):
+        label = self.query_one(label_id, Label)
+        label.update(text)
+        label.styles.display = "block"
+        
+
                 
-    def run_generation(self, lang: str, workers: int, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool) -> None:
+    def run_generation(self, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, model_val: str) -> None:
         self.log_content = ""
         self.write_log("Starting generation process...\n")
         
         project = self.state.get('project')
         dataset = self.state.get('dataset')
-        bucket = self.state.get('bucket', f"{project}-images")
+        region_val = self.state.get('region', 'EU')
+        
+        # Read bucket from state (configured in Setup Screen)
+        bucket = self.state.get('bucket')
+        if not bucket:
+            # Fallback to config or default
+            bucket = f"{project}-feedgen"
+            try:
+                import yaml
+                with open('config.yaml', 'r') as f:
+                    config = yaml.safe_load(f)
+                    buckets_config = config.get('buckets', {})
+                    if buckets_config.get('name'):
+                        bucket = buckets_config.get('name').replace("${project}", project)
+            except Exception:
+                pass
+                
+        images_bucket = bucket
+        output_bucket = bucket
         use_images = self.state.get_step_status('images') == 'Completed'
         web_done = self.state.get_step_status('web') == 'Completed'
         
@@ -214,20 +353,33 @@ class GenerationScreen(ControlCenterBaseScreen):
         image_col = self.state.get('image_col', 'image_url')
         
         try:
-            def progress_cb(total=None, progress=None, step_text=None):
+            def progress_cb(target=None, state=None, start_time=None, step_text=None, success_count=0, failed_count=0, total=0):
                 if step_text is not None:
                     self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[bold]{step_text}[/]")
-                if total is not None:
-                    self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, total=total, progress=progress)
-                elif progress is not None:
-                    self.app.call_from_thread(self.query_one("#progress-bar", ProgressBar).update, progress=progress)
+                if target is not None:
+                    label_id = f"#{target.lower()}-job-label"
+                    text = f"{target}: {state}"
+                    if total > 0:
+                        completed = success_count + failed_count
+                        text += f" ({completed}/{total} completed)"
+                        if failed_count > 0:
+                            text += f" [{failed_count} failed]"
+                    if start_time:
+                        text += f" (Started: {start_time})"
+                    import time
+                    current_time = time.strftime("%H:%M:%S")
+                    text += f" [dim](Last checked: {current_time})[/dim]"
+                    self.app.call_from_thread(self.show_job_label, label_id, text)
                     
             result = gen_srv.run_generation_process(
-                project, dataset, lang, workers, output_table, gen_titles, gen_desc, debug, bucket, use_images, web_done,
+                project, dataset, lang, output_table, gen_titles, gen_desc, debug, images_bucket, use_images, web_done,
                 id_col, title_col, desc_col, image_col,
+                output_bucket=output_bucket,
+                region_val=region_val,
+                model_val=model_val,
                 log_cb=self.write_log,
                 progress_cb=progress_cb,
-                is_cancelled=lambda: self.app._exit
+                is_cancelled=lambda: getattr(self.app, 'is_cancelled', False)
             )
             
             if result.get('cancelled'):

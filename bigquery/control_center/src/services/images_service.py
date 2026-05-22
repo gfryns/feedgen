@@ -12,7 +12,7 @@ def get_bucket_stats(project: str, bucket_name: str):
     storage_client = storage.Client(project=project)
     try:
         bucket = storage_client.get_bucket(bucket_name)
-        blobs = list(bucket.list_blobs(prefix="feedgen_images/"))
+        blobs = list(bucket.list_blobs(prefix="images/"))
         count = len(blobs)
         total_size = sum(blob.size for blob in blobs)
         return count, total_size
@@ -30,7 +30,7 @@ def delete_images(project: str, dataset: str, bucket_name: str, progress_cb=None
     bucket = storage_client.get_bucket(bucket_name)
     
     # Fetch blobs first
-    blobs_list = list(bucket.list_blobs(prefix="feedgen_images/"))
+    blobs_list = list(bucket.list_blobs(prefix="images/"))
     
     if progress_cb:
         progress_cb(total=len(blobs_list), progress=0)
@@ -73,7 +73,7 @@ def run_image_processing(project: str, dataset: str, bucket_name: str, connectio
     log_cb(f"Found {len(urls)} unique image URLs.\n")
     
     log_cb("Analyzing existing images in bucket...\n")
-    existing_blobs = set(b.name for b in bucket.list_blobs(prefix="feedgen_images/"))
+    existing_blobs = set(b.name for b in bucket.list_blobs(prefix="images/"))
     log_cb(f"Found {len(existing_blobs)} existing images. Processing remaining...\n")
     
     if progress_cb:
@@ -93,7 +93,7 @@ def run_image_processing(project: str, dataset: str, bucket_name: str, connectio
         if not filename or '?' in filename:
             filename = f"image_{hashlib.md5(url.encode()).hexdigest()}.jpg"
             
-        blob_path = f"feedgen_images/{filename}"
+        blob_path = f"images/{filename}"
         
         if blob_path in existing_blobs:
             return True, "skipped", filename
@@ -138,7 +138,7 @@ def run_image_processing(project: str, dataset: str, bucket_name: str, connectio
     WITH CONNECTION `{connection_path}`
     OPTIONS(
       object_metadata = 'SIMPLE',
-      uris = ['gs://{bucket_name}/feedgen_images/*'],
+      uris = ['gs://{bucket_name}/images/*'],
       max_staleness = INTERVAL 7 DAY,
       metadata_cache_mode = 'AUTOMATIC');
     """
