@@ -186,7 +186,8 @@ class ImagesScreen(ControlCenterBaseScreen):
                 f"[bold]Image Processing Report:[/bold]\n"
                 f"- Total URLs found: {result['total']}\n"
                 f"- Successfully processed: {result['success']}\n"
-                f"- Failed: {result['total'] - result['success']}"
+                f"- Skipped (already exist): {result['skipped']}\n"
+                f"- Failed: {result['total'] - result['success'] - result['skipped']}"
             )
             
             self.app.call_from_thread(self.query_one("#status-label", Label).update, report)
