@@ -95,3 +95,137 @@ class TestGenerationService:
         assert result['success'] == True
         assert 'message' in result
 
+    def test_update_ongoing_state(self, tmp_path):
+        state_file = tmp_path / "state.json"
+        state_file.write_text('{"project": "test"}')
+        
+        from services.generation_service import update_ongoing_state
+        
+        # Test update
+        update_ongoing_state(job_ids={"Titles": "job1"}, state_path=str(state_file))
+        
+        import json
+        content = json.loads(state_file.read_text())
+        assert content['ongoing_generation']['job_ids']['Titles'] == "job1"
+        
+        # Test clear
+        update_ongoing_state(clear=True, state_path=str(state_file))
+        content = json.loads(state_file.read_text())
+        assert 'ongoing_generation' not in content
+
+    @patch('services.generation_service.aiplatform.BatchPredictionJob')
+    def test_wait_for_jobs_and_get_prefixes(self, mock_job_class):
+        from services.generation_service import wait_for_jobs_and_get_prefixes
+        from unittest.mock import MagicMock
+        
+        from google.cloud.aiplatform.gapic import JobState
+        mock_job = MagicMock()
+        mock_job_class.return_value = mock_job
+        mock_job.resource_name = "projects/test/locations/us/batchPredictionJobs/123"
+        mock_job.state = JobState.JOB_STATE_SUCCEEDED
+        mock_job.to_dict.return_value = {'outputInfo': {'gcsOutputDirectory': 'gs://bucket/output/path'}}
+        
+        jobs = {"Titles": mock_job}
+        
+        result = wait_for_jobs_and_get_prefixes(jobs, "bucket", print, None, lambda: False, 10)
+        
+        assert result['Titles'] == "output/path/"
+
+    @patch('services.generation_service.wait_for_jobs_and_get_prefixes')
+    @patch('services.generation_service.load_and_merge_results')
+    @patch('services.generation_service.aiplatform.init')
+    @patch('services.generation_service.aiplatform.BatchPredictionJob')
+    def test_resume_generation_process(self, mock_job_class, mock_init, mock_merge, mock_wait):
+        from services.generation_service import resume_generation_process
+        from unittest.mock import MagicMock
+        
+        mock_job = MagicMock()
+        mock_job_class.return_value = mock_job
+        
+        mock_wait.return_value = {"Titles": "output/path/"}
+        
+        job_ids = {"Titles": "projects/test/locations/global/batchPredictionJobs/123"}
+        
+        result = resume_generation_process(
+            "test-proj", "test_ds", "test-bucket", "OutputTable",
+            job_ids, print, None, lambda: False
+        )
+        
+        assert result['success'] == True
+        assert result['total_rows'] == 0
+
+    @patch('services.generation_service.get_bq_client')
+    @patch('services.generation_service.storage.Client')
+    @patch('services.generation_service.aiplatform.init')
+    @patch('services.generation_service.aiplatform.BatchPredictionJob')
+    def test_run_generation_claude(self, mock_job_class, mock_init, mock_storage_client_class, mock_get_bq_client):
+        from services.generation_service import run_generation_process
+        from unittest.mock import MagicMock
+        
+        mock_bq = MagicMock()
+        mock_get_bq_client.return_value = mock_bq
+        
+        # Mock rows
+        mock_row = MagicMock()
+        mock_row.id = "123"
+        mock_row.properties = "{}"
+        mock_bq.query.return_value.result.side_effect = [
+            MagicMock(), # create InputProcessing table
+            MagicMock(), # ensure Output table exists
+            MagicMock(), # truncate Output table
+            [mock_row], # fetch data for prompt construction
+            [], # fetch examples
+            MagicMock(), # merge results
+            MagicMock() # drop temp table
+        ]
+        
+        # Mock storage
+        mock_storage = MagicMock()
+        mock_storage_client_class.return_value = mock_storage
+        mock_bucket = MagicMock()
+        mock_storage.get_bucket.return_value = mock_bucket
+        mock_blob = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        
+        # Mock job
+        from google.cloud.aiplatform.gapic import JobState
+        mock_job = MagicMock()
+        mock_job.state = JobState.JOB_STATE_SUCCEEDED
+        mock_job_class.create.return_value = mock_job
+        mock_job_class.return_value = mock_job
+        
+        # Act
+        result = run_generation_process(
+            "test-proj", "test_ds", "en", "OutputTable",
+            True, False, False, "test-bucket", False, True,
+            "id", "title", "description", "image_url",
+            model_val="claude-3-5-haiku" # Trigger Claude branch!
+        )
+        
+        # Assert
+        assert result['success'] == True
+        
+        # Verify upload_from_string was called with Claude format!
+        mock_blob.upload_from_string.assert_called_once()
+        call_args = mock_blob.upload_from_string.call_args[0][0]
+        assert '"custom_id": "123"' in call_args
+        assert '"messages":' in call_args
+
+    @patch('services.generation_service.aiplatform.BatchPredictionJob')
+    def test_wait_for_jobs_and_get_prefixes_failed(self, mock_job_class):
+        from services.generation_service import wait_for_jobs_and_get_prefixes
+        from unittest.mock import MagicMock
+        
+        from google.cloud.aiplatform.gapic import JobState
+        mock_job = MagicMock()
+        mock_job_class.return_value = mock_job
+        mock_job.resource_name = "projects/test/locations/us/batchPredictionJobs/123"
+        mock_job.state = JobState.JOB_STATE_FAILED
+        mock_job.to_dict.return_value = {'error': {'message': 'Job failed'}}
+        
+        jobs = {"Titles": mock_job}
+        
+        result = wait_for_jobs_and_get_prefixes(jobs, "bucket", print, None, lambda: False, 10)
+        
+        assert result['Titles'] == "output/output_titles/"
+

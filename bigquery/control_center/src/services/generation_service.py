@@ -12,10 +12,9 @@ import logging
 # Suppress chatty Vertex AI SDK logs
 logging.getLogger("google.cloud.aiplatform").setLevel(logging.WARNING)
 
-def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=False):
+def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=False, state_path="state.json"):
     """Updates state.json with ongoing generation details."""
     try:
-        state_path = "state.json"
         if not os.path.exists(state_path):
             return
             
