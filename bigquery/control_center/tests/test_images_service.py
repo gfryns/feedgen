@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from services.images_service import get_bucket_stats, create_bucket, delete_images, run_image_processing
+from services.images_service import get_bucket_stats, delete_images, run_image_processing
 
 class TestImagesService:
     
@@ -24,17 +24,7 @@ class TestImagesService:
         assert size == 300
         mock_client.get_bucket.assert_called_once_with("test-bucket")
 
-    @patch('services.images_service.storage.Client')
-    def test_create_bucket(self, mock_storage_client):
-        # Arrange
-        mock_client = MagicMock()
-        mock_storage_client.return_value = mock_client
-        
-        # Act
-        create_bucket("test-proj", "test-bucket", "EU")
-        
-        # Assert
-        mock_client.create_bucket.assert_called_once_with("test-bucket", location="EU")
+
 
     @patch('services.images_service.storage.Client')
     @patch('services.images_service.get_bq_client')

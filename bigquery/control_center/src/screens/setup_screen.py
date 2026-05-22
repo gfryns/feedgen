@@ -63,7 +63,7 @@ class SetupScreen(ControlCenterBaseScreen):
                 
             with Horizontal():
                 yield Button("Save and Deploy", variant="success", id="save-deploy-btn")
-                yield Button("Back to Menu", id="back-btn")
+                yield Button("Cancel", id="back-btn")
                 
             yield LoadingIndicator(id="loading")
             yield Label("", id="status-label")
@@ -128,27 +128,13 @@ class SetupScreen(ControlCenterBaseScreen):
             
             # 3. Create Bucket (if not exists)
             if bucket_val:
-                from google.cloud import storage
-                storage_client = storage.Client(project=project_val)
-                try:
-                    self.write_log(f"Ensuring bucket {bucket_val} exists in {region_val}...\n")
-                    
-                    def _create_bucket():
-                        try:
-                            storage_client.create_bucket(bucket_val, location=region_val)
-                            return True
-                        except Exception as e:
-                            if "Conflict" in str(e) or "409" in str(e):
-                                return False
-                            raise e
-                            
-                    created = await loop.run_in_executor(None, _create_bucket)
-                    if created:
-                        self.write_log(f"Bucket {bucket_val} created.\n")
-                    else:
-                        self.write_log(f"Bucket {bucket_val} already exists.\n")
-                except Exception as e:
-                    self.write_log(f"Warning: Could not create bucket {bucket_val}: {e}\n")
+                from services.setup_service import create_bucket
+                await loop.run_in_executor(
+                    None,
+                    lambda: create_bucket(
+                        project_val, bucket_val, region_val, log_cb=self.write_log
+                    )
+                )
             
             # Set step statuses
             self.state.set_step_status('config', 'Completed', save=False)

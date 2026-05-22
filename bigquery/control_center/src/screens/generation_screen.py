@@ -177,8 +177,8 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")
-                yield Button("Cancel Generation", variant="error", id="cancel-btn", disabled=True)
-                yield Button("Back to Menu", id="back-btn")
+                yield Button("Stop Batch Prediction", variant="error", id="cancel-btn", disabled=True)
+                yield Button("Cancel", id="back-btn")
                 
             yield Label("", id="status-label")
             

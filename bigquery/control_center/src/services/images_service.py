@@ -19,10 +19,7 @@ def get_bucket_stats(project: str, bucket_name: str):
     except Exception:
         return None, None
 
-def create_bucket(project: str, bucket_name: str, region: str):
-    """Creates a new GCS bucket."""
-    storage_client = storage.Client(project=project)
-    storage_client.create_bucket(bucket_name, location=region)
+
 
 def delete_images(project: str, dataset: str, bucket_name: str, progress_cb=None, is_cancelled=lambda: False):
     """Deletes all images in the bucket and drops the external table."""

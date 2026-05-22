@@ -27,7 +27,7 @@ class ImagesScreen(ControlCenterBaseScreen):
                     id="msg"
                 )
                 with Horizontal():
-                    yield Button("Back to Menu", id="back-btn")
+                    yield Button("Cancel", id="back-btn")
             else:
                 with Container(classes="card"):
                     yield Label("Image Processing Configuration", id="images-title")
@@ -87,7 +87,7 @@ class ImagesScreen(ControlCenterBaseScreen):
                     Horizontal(
                         Button("Run Image Processing", variant="success", id="run-btn"),
                         Button("Delete stored images", variant="error", id="delete-btn"),
-                        Button("Back to Menu", id="back-btn")
+                        Button("Cancel", id="back-btn")
                     )
                 )
             else:
@@ -95,7 +95,7 @@ class ImagesScreen(ControlCenterBaseScreen):
                 await actions_container.mount(
                     Horizontal(
                         Button("Create Bucket", variant="primary", id="create-btn"),
-                        Button("Back to Menu", id="back-btn")
+                        Button("Cancel", id="back-btn")
                     )
                 )
                 

@@ -52,13 +52,13 @@ def test_check_dependency(tmp_path):
     state_file = tmp_path / "state.json"
     sm = ControlCenterStateManager(filename=str(state_file))
     
-    # 'dataset' depends on 'infra'
-    allowed, msg = sm.check_dependency('dataset')
+    # 'source' depends on 'infra'
+    allowed, msg = sm.check_dependency('source')
     assert allowed == False
     assert "infra" in msg
     
     sm.set_step_status('infra', 'Completed')
-    allowed, msg = sm.check_dependency('dataset')
+    allowed, msg = sm.check_dependency('source')
     assert allowed == True
     assert msg == ""
 
@@ -67,12 +67,10 @@ def test_invalidate_descendants(tmp_path):
     sm = ControlCenterStateManager(filename=str(state_file))
     
     sm.set_step_status('infra', 'Completed')
-    sm.set_step_status('dataset', 'Completed')
-    sm.set_step_status('procedures', 'Completed')
+    sm.set_step_status('source', 'Completed')
     
-    # Invalidate 'infra' should invalidate 'dataset' and 'procedures'
+    # Invalidate 'infra' should invalidate 'source'
     sm.invalidate_descendants('infra')
     
     assert sm.get_step_status('infra') == 'Completed' # Not invalidated itself
-    assert sm.get_step_status('dataset') == 'Pending'
-    assert sm.get_step_status('procedures') == 'Pending'
+    assert sm.get_step_status('source') == 'Pending'

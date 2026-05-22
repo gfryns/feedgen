@@ -33,7 +33,7 @@ class SourceScreen(ControlCenterBaseScreen):
             
             with Horizontal():
                 yield Button("Save & Return", variant="success", id="select-btn")
-                yield Button("Back to Menu", id="back-btn")
+                yield Button("Cancel", id="back-btn")
         yield Footer()
         
     def on_button_pressed(self, event: Button.Pressed) -> None:

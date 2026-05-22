@@ -61,7 +61,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             with Horizontal():
                 yield Button("Run Import", variant="success", id="run-btn")
                 yield Button("Delete Stored Examples", variant="error", id="delete-btn")
-                yield Button("Back to Menu", id="back-btn")
+                yield Button("Cancel", id="back-btn")
                 
             yield Label("", id="status-label")
                 
@@ -86,11 +86,11 @@ class ExamplesScreen(ControlCenterBaseScreen):
         # Show selected
         if event.value:
             self.query_one(f"#{event.value}-container").styles.display = "block"
-            self.state.set('examples_method', event.value)
             
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
             method = self.query_one("#method-select").value
+            self.state.set('examples_method', method)
             
             if method == "sheet":
                 url = self.query_one("#sheet-url").value

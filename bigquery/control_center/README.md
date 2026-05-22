@@ -10,7 +10,7 @@ Using this control center, digital marketers and data engineers can seamlessly d
 
 *   **Interactive TUI:** A sleek, keyboard- and mouse-friendly terminal interface with real-time validation, progress bars, and streaming deployment logs.
 *   **Infrastructure as Code:** Automatically enables required GCP APIs (Vertex AI), provisions BigQuery Datasets, and creates Cloud Resource Connections with proper IAM role bindings.
-*   **BigQuery ML Integration:** Registers Gemini foundation models (e.g., `gemini-2.5-flash`, `gemini-2.5-pro`) directly within BigQuery as remote models.
+*   **Vertex AI Integration:** Leverages Vertex AI Batch Predictions for scalable and parallelized generation using Gemini and Claude models, bypassing BigQuery ML limitations.
 *   **Data Preparation:** 
     *   Previews raw input tables directly in the terminal.
     *   Provides a visual mapping interface to align your custom schema (ID, Title, Description, Image URL) to the pipeline's expected format.
@@ -19,7 +19,7 @@ Using this control center, digital marketers and data engineers can seamlessly d
     *   **Web Scraping:** Automatically extracts additional text content from product detail pages using CSS selectors.
     *   **Image Processing:** Downloads product images to Google Cloud Storage (GCS) and registers them as BigQuery External Tables to enable multimodal LLM prompting.
 *   **Few-Shot Prompting:** Easily import "Golden Examples" from a Google Sheet or by manually selecting high-performing product IDs to guide the LLM's output style.
-*   **Batch Inference:** Deploys highly optimized BigQuery Stored Procedures to run batched, parallelized generation of new titles and descriptions.
+*   **Batch Prediction:** Orchestrates Vertex AI Batch Prediction jobs to generate new titles and descriptions efficiently at scale.
 
 ## 📁 Project Structure
 
@@ -32,8 +32,7 @@ Using this control center, digital marketers and data engineers can seamlessly d
 │   └── state_manager.py    # Atomic state saving/loading (state.json)
 ├── tests/                  # Pytest unit tests for business logic
 ├── prompts/                # Customizable LLM prompt templates (.txt)
-├── config.yaml             # Supported GCP Regions and Gemini Models
-├── generation.sql          # BigQuery Stored Procedures and Table Schemas
+├── config.yaml             # Supported GCP Regions and Models
 └── requirements.txt        # Python dependencies
 ```
 

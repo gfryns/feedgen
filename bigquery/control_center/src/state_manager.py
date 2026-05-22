@@ -11,15 +11,12 @@ class ControlCenterStateManager:
         # Master dependency graph
         self.dependencies = {
             'infra': ['config'],
-            'dataset': ['infra'],
-            'procedures': ['dataset'],
             'source': ['infra'],
-            'filter': ['dataset', 'source'],
-            'web': ['dataset', 'filter'],
-            'images': ['dataset', 'filter'],
-            'examples': ['dataset', 'filter'],
-            'prepare': ['dataset', 'filter'],
-            'gen': ['filter', 'procedures'],
+            'filter': ['infra', 'source'],
+            'web': ['infra', 'filter'],
+            'images': ['infra', 'filter'],
+            'examples': ['infra', 'filter'],
+            'gen': ['filter'],
             'export': ['gen']
         }
         

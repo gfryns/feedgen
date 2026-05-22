@@ -84,12 +84,26 @@ Collapsible {
     padding: 0 1;
 }
 
+.col5 {
+    width: 20%;
+    padding: 0 1;
+}
+
 .card {
     border: round $primary;
     padding: 1 2;
     margin-bottom: 1;
     background: $surface;
-    min-height: 20;
+    min-height: 10;
+}
+
+#mapping-card {
+    padding: 1 1;
+}
+
+#options-card {
+    padding: 1 1;
+    min-height: 16;
 }
 
 #progress-bar {
