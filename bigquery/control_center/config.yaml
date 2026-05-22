@@ -36,13 +36,40 @@ regions:
   - label: "australia-southeast1 (Sydney)"
     value: "australia-southeast1"
 
+# Supported models and their available locations.
+# Reference: https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations
 models:
   - label: "Gemini 3.5 Flash"
     value: "gemini-3.5-flash"
+    supported_locations: ["global", "us", "eu"]
+  - label: "Gemini 3.1 Flash-Lite"
+    value: "gemini-3.1-flash-lite"
+    supported_locations: ["global", "us", "eu"]
+  - label: "Gemini 3.1 Pro (Preview)"
+    value: "gemini-3.1-pro-preview"
+    supported_locations: ["global", "us", "eu"]
+  - label: "Gemini 3 Flash (Preview)"
+    value: "gemini-3-flash-preview"
+    supported_locations: ["global", "us", "eu"]
+  - label: "Gemini 1.5 Pro"
+    value: "gemini-1.5-pro"
+    supported_locations: ["global", "us", "eu"]
+  - label: "Gemini 1.5 Flash"
+    value: "gemini-1.5-flash"
+    supported_locations: ["global", "us", "eu"]
   - label: "Gemini 2.5 Pro"
     value: "gemini-2.5-pro"
+    supported_locations: ["global", "us", "eu"]
   - label: "Gemini 2.5 Flash"
     value: "gemini-2.5-flash"
+    supported_locations: ["global", "us", "eu"]
+  # Partner models (Require enablement in Vertex AI Model Garden)
+  # - label: "Claude 3.5 Sonnet"
+  #   value: "claude-3-5-sonnet"
+  #   supported_locations: ["us-central1", "us-east4", "europe-west3"]
+  # - label: "Claude 3.5 Haiku"
+  #   value: "claude-3-5-haiku"
+  #   supported_locations: ["us-central1", "us-east4", "europe-west3"]
   - label: "Other (Enter manually)"
     value: "other"
 

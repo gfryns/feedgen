@@ -55,6 +55,19 @@ Before running the control center, ensure you have:
    gcloud auth application-default login
    ```
 
+## 🤖 Partner Models (Claude & Mistral)
+
+If you want to use partner models like Anthropic's Claude or Mistral in Vertex AI Batch Predictions, you must manually enable them in your Google Cloud Project:
+
+1. Go to the **Vertex AI Model Garden** in the Google Cloud Console.
+2. Search for the model you want to use (e.g., `Claude 3.5 Sonnet` or `Mistral Large`).
+3. Click on the model card.
+4. Accept the End User License Agreement (EULA) or enable the model for your project.
+5. Once enabled, you can uncomment the model in [config.yaml](file:///Users/gfryns/Documents/projects/feedgen/bigquery/control_center/config.yaml) to make it available in the Control Center dropdown.
+
+> [!NOTE]
+> Partner models do not support the `global` endpoint for batch predictions. You must select a **specific region** (e.g., `us-central1` or `europe-west3`) where the model is available.
+
 ## 📦 Installation
 
 Create a virtual environment and install the required packages:

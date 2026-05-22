@@ -405,6 +405,11 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         
         # Vertex AI will be initialized per attempt in the loop
         
+        # Determine publisher
+        publisher = "google"
+        if model_val.startswith("claude-"):
+            publisher = "anthropic"
+
         jobs = {}
         
         for target in targets:
@@ -438,14 +443,23 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
                     
                 full_prompt = f"## System Instructions\n\n{sys_inst}\n\n{examples_str}{input_str}"
                 
-                instance = {
-                    "contents": [{"role": "user", "parts": [{"text": full_prompt}]}]
-                }
-                
-                json_row = {
-                    "id": row.id,
-                    "request": instance
-                }
+                if publisher == "anthropic":
+                    json_row = {
+                        "custom_id": str(row.id),
+                        "request": {
+                            "messages": [{"role": "user", "content": full_prompt}],
+                            "anthropic_version": "vertex-2023-10-16",
+                            "max_tokens": 1000
+                        }
+                    }
+                else:
+                    instance = {
+                        "contents": [{"role": "user", "parts": [{"text": full_prompt}]}]
+                    }
+                    json_row = {
+                        "id": str(row.id),
+                        "request": instance
+                    }
                 instances.append(json.dumps(json_row))
                 
             blob_path = f"input/input_{target.lower()}.jsonl"
@@ -453,14 +467,47 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
             blob.upload_from_string("\n".join(instances), content_type="application/jsonl")
             log_cb(f"Uploaded input for {target} to gs://{bucket}/{blob_path}\n")
             
-            # Determine locations based on region (per user, multi-region and global are available)
+            # Determine locations based on region with fallback
             locs = []
-            if region_val.lower() == "eu":
-                locs = ["eu", "global"]
-            elif region_val.lower() == "us":
-                locs = ["us", "global"]
+            
+            # Load config.yaml to get supported locations
+            supported_locs = []
+            try:
+                import yaml
+                with open('config.yaml', 'r') as f:
+                    config = yaml.safe_load(f)
+                    models_config = config.get('models', [])
+                    for m in models_config:
+                        if m.get('value') == model_val:
+                            supported_locs = m.get('supported_locations', [])
+                            break
+            except Exception:
+                pass
+                
+            if supported_locs:
+                # Use supported locations from config
+                if region_val.lower() in supported_locs:
+                    locs.append(region_val.lower())
+                    
+                # Add encompassing multi-region if in list
+                if region_val.lower().startswith("us-") and "us" in supported_locs and "us" not in locs:
+                    locs.append("us")
+                elif region_val.lower().startswith("europe-") and "eu" in supported_locs and "eu" not in locs:
+                    locs.append("eu")
+                    
+                # Add remaining supported locations
+                for l in supported_locs:
+                    if l not in locs:
+                        locs.append(l)
             else:
-                locs = [region_val, "global"]
+                # Fallback to hardcoded rules if no config found
+                locs.append(region_val.lower())
+                if region_val.lower().startswith("us-") and "us" not in locs:
+                    locs.append("us")
+                elif region_val.lower().startswith("europe-") and "eu" not in locs:
+                    locs.append("eu")
+                if publisher == "google" and "global" not in locs:
+                    locs.append("global")
                 
             attempts = []
             for l in locs:
@@ -474,7 +521,12 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
                 use_full_path = attempt["use_full_path"]
                 
                 if use_full_path:
-                    model_name = f"projects/{project}/locations/{loc}/publishers/google/models/{model_val}"
+                    publisher = "google"
+                    if model_val.startswith("claude-"):
+                        publisher = "anthropic"
+                    elif model_val.startswith("mistral-"):
+                        publisher = "mistralai"
+                    model_name = f"projects/{project}/locations/{loc}/publishers/{publisher}/models/{model_val}"
                 else:
                     model_name = model_val
                     
