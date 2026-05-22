@@ -115,7 +115,6 @@ class ImagesScreen(ControlCenterBaseScreen):
         
         if event.button.id == "run-btn":
             self.state.set('bucket', bucket)
-            self.query_one("#logs-collapsible").collapsed = False
             self.query_one("#progress-bar").styles.display = "block"
             self.run_worker(lambda: self.run_images(bucket), thread=True)
         elif event.button.id == "create-btn":

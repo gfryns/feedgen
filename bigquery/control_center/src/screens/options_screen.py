@@ -120,7 +120,6 @@ class OptionsScreen(ControlCenterBaseScreen):
             self.state.set('url_col', url_col)
             self.state.set('image_col', image_col)
             
-            self.query_one("#logs-collapsible").collapsed = False
             self.run_worker(self.create_filtered_table(id_col, title_col, desc_col, url_col, image_col, include_cols, filters))
             
     async def create_filtered_table(self, id_col: str, title_col: str, desc_col: str, url_col: str, image_col: str, include_cols: str, filters: str) -> None:

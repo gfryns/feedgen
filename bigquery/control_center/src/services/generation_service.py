@@ -35,12 +35,14 @@ def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=Fal
                 ongoing['total_rows'] = total_rows
             state['ongoing_generation'] = ongoing
             
-        with open(state_path, 'w') as f:
+        temp_state_path = state_path + ".tmp"
+        with open(temp_state_path, 'w') as f:
             json.dump(state, f, indent=4)
+        os.rename(temp_state_path, state_path)
     except Exception:
         pass # Ignore errors to avoid breaking the main flow
 
-def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows):
+def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path="state.json"):
     """Polls jobs until completion and returns target prefixes."""
     all_done = False
     previous_states = {t: None for t in jobs.keys()}
@@ -85,7 +87,7 @@ def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancell
                     parts = output_dir.split(f"gs://{bucket}/")
                     if len(parts) > 1:
                         prefix = parts[1] + "/"
-                        update_ongoing_state(prefixes={t: prefix})
+                        update_ongoing_state(prefixes={t: prefix}, state_path=state_path)
                 
                 if progress_cb:
                     progress_cb(target=t, state=j.state.name, success_count=success_count, failed_count=failed_count, total=total_rows)
@@ -121,7 +123,9 @@ def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancell
         
     return target_prefixes
 
-def load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client):
+def load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client, progress_cb=None, state_path="state.json"):
+    if progress_cb:
+        progress_cb(step_text="[Step 4/4] Retrieving and merging results...")
     output_id = f"{project}.{dataset}.{output_table}"
     for t, prefix in target_prefixes.items():
         log_cb(f"Processing results for {t} from GCS prefix: {prefix}\n")
@@ -130,7 +134,9 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
         blobs = list(out_bucket.list_blobs(prefix=prefix))
         log_cb(f"Found {len(blobs)} blobs with prefix {prefix}\n")
         
-        local_output_path = f"./batch_output_{t.lower()}.jsonl"
+        import os
+        os.makedirs('tmp', exist_ok=True)
+        local_output_path = f"tmp/batch_output_{t.lower()}.jsonl"
         
         with open(local_output_path, "w") as out_f:
             for b in blobs:
@@ -234,9 +240,9 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
         log_cb(f"Skipping GCS cleanup for debugging.\n")
         
     # Clear ongoing state after successful merge of all targets
-    update_ongoing_state(clear=True)
+    update_ongoing_state(clear=True, state_path=state_path)
 
-def resume_generation_process(project, dataset, bucket, output_table, job_ids, log_cb, progress_cb, is_cancelled):
+def resume_generation_process(project, dataset, bucket, output_table, job_ids, log_cb, progress_cb, is_cancelled, state_path="state.json"):
     """Resumes a generation process by polling existing jobs."""
     client = get_bq_client(project)
     storage_client = storage.Client(project=project)
@@ -244,7 +250,6 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
     # Read total_rows from state.json
     total_rows = 0
     try:
-        state_path = "state.json"
         if os.path.exists(state_path):
             with open(state_path, 'r') as f:
                 state = json.load(f)
@@ -268,24 +273,26 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
         
     # Wait for jobs and get prefixes
     if progress_cb:
-        progress_cb(step_text="Resuming jobs monitoring...")
+        progress_cb(step_text="[Step 3/4] Resuming jobs monitoring...")
         
-    target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows)
+    target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path=state_path)
     
     if isinstance(target_prefixes, dict) and 'cancelled' in target_prefixes:
         return target_prefixes
         
     # Merge results
-    load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client)
+    load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client, progress_cb=progress_cb)
     
     return {'success': True, 'total_rows': total_rows}
 
-def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False):
+def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False, state_path: str = "state.json"):
     """Runs the generation process using Vertex AI Batch Prediction."""
     client = get_bq_client(project)
     
     try:
         # 1. Prepare Tables
+        if progress_cb:
+            progress_cb(step_text="[Step 1/4] Preparing tables...")
         log_cb("Preparing tables...\n")
         
         input_proc_id = f"{project}.{dataset}.InputProcessing"
@@ -388,7 +395,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         rows = list(client.query(query_data).result())
         
         # Save total rows to state.json for resume progress
-        update_ongoing_state(total_rows=len(rows))
+        update_ongoing_state(total_rows=len(rows), state_path=state_path)
         
         # Fetch examples
         query_examples = f"SELECT * FROM `{project}.{dataset}.Examples`"
@@ -408,7 +415,10 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         publisher = "google"
         if model_val.startswith("claude-"):
             publisher = "anthropic"
-
+            
+        if progress_cb:
+            progress_cb(step_text="[Step 2/4] Creating batch prediction jobs...")
+            
         jobs = {}
         
         for target in targets:
@@ -548,7 +558,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
                     
                     jobs[target] = job
                     log_cb(f"Job created for {target}: {job.resource_name}\n")
-                    update_ongoing_state(job_ids={target: job.resource_name})
+                    update_ongoing_state(job_ids={target: job.resource_name}, state_path=state_path)
                     success = True
                     if progress_cb:
                         progress_cb(target=target, state="PENDING", start_time=start_time)
@@ -561,15 +571,15 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
                 
         # Wait for all jobs and get prefixes
         if progress_cb:
-            progress_cb(step_text="Jobs running in Vertex AI...")
+            progress_cb(step_text="[Step 3/4] Running jobs in Vertex AI...")
             
-        target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, len(rows))
+        target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, len(rows), state_path=state_path)
         
         if isinstance(target_prefixes, dict) and 'cancelled' in target_prefixes:
             return target_prefixes
             
         # Call the separated merge function
-        load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client)
+        load_and_merge_results(project, dataset, bucket, output_table, target_prefixes, log_cb, storage_client, client, progress_cb=progress_cb)
             
         return {'success': True, 'total_rows': len(rows)}
         

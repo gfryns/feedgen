@@ -104,7 +104,6 @@ class SetupScreen(ControlCenterBaseScreen):
             
             self.query_one("#loading").styles.display = "block"
             self.query_one("#status-label").update("Status: Deploying...")
-            self.query_one("#logs-collapsible").collapsed = False
             
             self.run_worker(self.deploy_all(project_val, dataset_val, region_val, bucket_val))
             

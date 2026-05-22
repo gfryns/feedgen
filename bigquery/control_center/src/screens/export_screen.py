@@ -54,7 +54,6 @@ class ExportScreen(ControlCenterBaseScreen):
                 'export_table': export_table
             })
             
-            self.query_one("#logs-collapsible").collapsed = False
             self.run_worker(self.run_export(feed_type, export_table))
             
     async def run_export(self, feed_type: str, export_table: str) -> None:

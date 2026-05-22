@@ -29,7 +29,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 id="examples-tip"
             )
             
-            with Container(classes="card"):
+            with Vertical(classes="card"):
                 yield Label("Examples Source", id="examples-source-title")
                 method = self.state.get('examples_method', 'sheet')
                 yield Select(self.methods, value=method, id="method-select")
@@ -55,15 +55,15 @@ class ExamplesScreen(ControlCenterBaseScreen):
                     yield Label("Product IDs (comma-separated):")
                     yield Input(placeholder="ID1, ID2, ID3", id="product-ids")
                 
+            with Collapsible(title="Examples Preview (0 stored)", id="preview-collapsible", collapsed=True):
+                yield DataTable(id="examples-preview")
+                
             with Horizontal():
                 yield Button("Run Import", variant="success", id="run-btn")
                 yield Button("Delete Stored Examples", variant="error", id="delete-btn")
                 yield Button("Back to Menu", id="back-btn")
                 
             yield Label("", id="status-label")
-            
-            with Collapsible(title="Examples Preview (0 stored)", id="preview-collapsible", collapsed=True):
-                yield DataTable(id="examples-preview")
                 
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):
                 yield Log(id="process-logs")
@@ -91,7 +91,6 @@ class ExamplesScreen(ControlCenterBaseScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
             method = self.query_one("#method-select").value
-            self.query_one("#logs-collapsible").collapsed = False
             
             if method == "sheet":
                 url = self.query_one("#sheet-url").value
@@ -117,7 +116,6 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 event.button.label = "[red]✘[/] No Header"
                 
         elif event.button.id == "delete-btn":
-            self.query_one("#logs-collapsible").collapsed = False
             self.run_worker(self.clear_examples())
             
     async def load_examples_preview(self) -> None:

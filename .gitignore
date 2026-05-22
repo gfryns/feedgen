@@ -11,3 +11,4 @@ __pycache__
 .coverage
 bigquery/.install.conf
 bigquery/control_center/state.json
+bigquery/control_center/tmp/

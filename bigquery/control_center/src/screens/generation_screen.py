@@ -177,8 +177,8 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")
-                yield Button("Back to Menu", id="back-btn")
                 yield Button("Cancel Generation", variant="error", id="cancel-btn", disabled=True)
+                yield Button("Back to Menu", id="back-btn")
                 
             yield Label("", id="status-label")
             
@@ -240,7 +240,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                     current_time = time.strftime("%H:%M:%S")
                     text += f" [dim](Last checked: {current_time})[/dim]"
                 self.app.call_from_thread(self.show_job_label, label_id, text)
-                if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED", "JOB_STATE_SUCCEEDED", "SUCCEEDED"]:
                     self.app.call_from_thread(self.set_timer, 15, lambda: self.hide_job_label(label_id))
                 
         def run_resume_thread():
@@ -261,15 +261,18 @@ class GenerationScreen(ControlCenterBaseScreen):
                 
                 if result.get('cancelled'):
                     self.app.call_from_thread(self.query_one("#status-label", Label).update, "[#E69F00]Jobs cancelled by user.[/]")
+                    self.app.call_from_thread(self.disable_cancel_button)
                     return
                     
                 self.state.set_step_status('gen', 'Completed')
+                self.app.call_from_thread(self.disable_cancel_button)
                 self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, "[green]Generation completed successfully![/]")
                 
             except Exception as e:
                 self.write_log(f"Error in resume: {e}\n")
                 self.app.call_from_thread(self.notify, f"Error: {e}", severity="error")
+                self.app.call_from_thread(self.disable_cancel_button)
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[red]Error: {e}[/]")
                 
         import threading
@@ -304,7 +307,6 @@ class GenerationScreen(ControlCenterBaseScreen):
                 'model': model_val
             })
             
-            self.query_one("#logs-collapsible").collapsed = False
             
             debug = getattr(self.state, 'debug', False)
             self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, debug, model_val), thread=True)
@@ -337,6 +339,11 @@ class GenerationScreen(ControlCenterBaseScreen):
         try:
             label = self.query_one(label_id, Label)
             label.styles.display = "none"
+        except Exception: pass
+        
+    def disable_cancel_button(self):
+        try:
+            self.query_one("#cancel-btn", Button).disabled = True
         except Exception: pass
         
 
@@ -393,7 +400,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                         current_time = time.strftime("%H:%M:%S")
                         text += f" [dim](Last checked: {current_time})[/dim]"
                     self.app.call_from_thread(self.show_job_label, label_id, text)
-                    if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED"]:
+                    if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED", "JOB_STATE_SUCCEEDED", "SUCCEEDED"]:
                         self.app.call_from_thread(self.set_timer, 15, lambda: self.hide_job_label(label_id))
                     
             result = gen_srv.run_generation_process(
@@ -409,13 +416,16 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             if result.get('cancelled'):
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, "[#E69F00]Jobs cancelled by user.[/]")
+                self.app.call_from_thread(self.disable_cancel_button)
                 return
                 
             self.state.set_step_status('gen', 'Completed')
+            self.app.call_from_thread(self.disable_cancel_button)
             self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")
             self.app.call_from_thread(self.query_one("#status-label", Label).update, "[green]Generation completed successfully![/]")
             
         except Exception as e:
             self.write_log(f"Error: {e}\n")
             self.app.call_from_thread(self.notify, f"Error during generation: {e}", severity="error")
+            self.app.call_from_thread(self.disable_cancel_button)
             self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[red]Error during generation: {e}[/]")

@@ -89,6 +89,7 @@ Collapsible {
     padding: 1 2;
     margin-bottom: 1;
     background: $surface;
+    min-height: 20;
 }
 
 #progress-bar {

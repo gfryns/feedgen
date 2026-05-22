@@ -41,8 +41,10 @@ class ControlCenterStateManager:
         return {}
         
     def save(self):
-        with open(self.filename, 'w') as f:
+        temp_filename = self.filename + ".tmp"
+        with open(temp_filename, 'w') as f:
             json.dump(self.data, f, indent=4)
+        os.rename(temp_filename, self.filename)
             
     def get(self, key, default=None):
         return self.data.get(key, default)

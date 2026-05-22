@@ -11,7 +11,7 @@ class TestGenerationService:
     @patch('services.generation_service.aiplatform.BatchPredictionJob')
     @patch('services.generation_service.storage.Client')
     @patch('services.generation_service.time.sleep')
-    def test_run_generation_process(self, mock_sleep, mock_storage_client_class, mock_batch_prediction_job_class, mock_file_open, mock_get_bq_client, mock_update_state):
+    def test_run_generation_process(self, mock_sleep, mock_storage_client_class, mock_batch_prediction_job_class, mock_file_open, mock_get_bq_client, mock_update_state, tmp_path):
         # Arrange
         mock_bq = MagicMock()
         mock_get_bq_client.return_value = mock_bq
@@ -68,7 +68,8 @@ class TestGenerationService:
         result = run_generation_process(
             "test-proj", "test_ds", "en", "OutputTable",
             True, False, False, "test-bucket", False, True,
-            "id", "title", "description", "image_url"
+            "id", "title", "description", "image_url",
+            state_path=str(tmp_path / "state.json")
         )        
         # Assert
         assert result['success'] == True
@@ -135,7 +136,7 @@ class TestGenerationService:
     @patch('services.generation_service.load_and_merge_results')
     @patch('services.generation_service.aiplatform.init')
     @patch('services.generation_service.aiplatform.BatchPredictionJob')
-    def test_resume_generation_process(self, mock_job_class, mock_init, mock_merge, mock_wait):
+    def test_resume_generation_process(self, mock_job_class, mock_init, mock_merge, mock_wait, tmp_path):
         from services.generation_service import resume_generation_process
         from unittest.mock import MagicMock
         
@@ -146,19 +147,23 @@ class TestGenerationService:
         
         job_ids = {"Titles": "projects/test/locations/global/batchPredictionJobs/123"}
         
+        state_file = tmp_path / "state.json"
+        state_file.write_text('{"project": "test", "ongoing_generation": {"total_rows": 5}}')
+        
         result = resume_generation_process(
             "test-proj", "test_ds", "test-bucket", "OutputTable",
-            job_ids, print, None, lambda: False
+            job_ids, print, None, lambda: False,
+            state_path=str(state_file)
         )
         
         assert result['success'] == True
-        assert result['total_rows'] == 0
+        assert result['total_rows'] == 5
 
     @patch('services.generation_service.get_bq_client')
     @patch('services.generation_service.storage.Client')
     @patch('services.generation_service.aiplatform.init')
     @patch('services.generation_service.aiplatform.BatchPredictionJob')
-    def test_run_generation_claude(self, mock_job_class, mock_init, mock_storage_client_class, mock_get_bq_client):
+    def test_run_generation_claude(self, mock_job_class, mock_init, mock_storage_client_class, mock_get_bq_client, tmp_path):
         from services.generation_service import run_generation_process
         from unittest.mock import MagicMock
         
@@ -199,7 +204,8 @@ class TestGenerationService:
             "test-proj", "test_ds", "en", "OutputTable",
             True, False, False, "test-bucket", False, True,
             "id", "title", "description", "image_url",
-            model_val="claude-3-5-haiku" # Trigger Claude branch!
+            model_val="claude-3-5-haiku", # Trigger Claude branch!
+            state_path=str(tmp_path / "state.json")
         )
         
         # Assert

@@ -54,7 +54,6 @@ class ScrapingScreen(ControlCenterBaseScreen):
         if event.button.id == "run-btn":
             selector = self.query_one("#selector").value
             self.state.set('selector', selector)
-            self.query_one("#logs-collapsible").collapsed = False
             self.query_one("#progress-bar").styles.display = "block"
             self.run_worker(self.run_scraping(selector))
         elif event.button.id == "detect-selector-btn":
