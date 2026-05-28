@@ -76,6 +76,7 @@ models:
 prompts:
   titles: "prompts/titles.txt"
   descriptions: "prompts/descriptions.txt"
+  highlights: "prompts/highlights.txt"
 
 buckets:
   name: "${project}-feedgen"

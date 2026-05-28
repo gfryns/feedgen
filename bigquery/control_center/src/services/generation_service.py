@@ -165,8 +165,8 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
                     if candidates:
                         text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
                     
-                    # Extract generated title/description
-                    match = re.search(r'generated (?:title|description):\s*(.*)', text, re.IGNORECASE)
+                    # Extract generated title/description/highlights
+                    match = re.search(r'generated (?:title|description|highlights):\s*(.*)', text, re.IGNORECASE)
                     extracted_val = match.group(1).strip() if match else text.strip()
                     
                     rows_to_load.append({
@@ -198,8 +198,17 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
         log_cb(f"Loaded {len(rows_to_load)} results into temp table {temp_table_id}.\n")
         
         # Merge results back
-        col_to_update = "title" if t == "Titles" else "description"
-        raw_col_to_update = "raw_response_title" if t == "Titles" else "raw_response_description"
+        if t == "Titles":
+            col_to_update = "title"
+            raw_col_to_update = "raw_response_title"
+        elif t == "Descriptions":
+            col_to_update = "description"
+            raw_col_to_update = "raw_response_description"
+        elif t == "Highlights":
+            col_to_update = "highlights"
+            raw_col_to_update = "raw_response_highlights"
+        else:
+            raise ValueError(f"Unknown target: {t}")
         
         sql_merge = f"""
         MERGE `{output_id}` AS O
@@ -285,7 +294,7 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
     
     return {'success': True, 'total_rows': total_rows}
 
-def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False, state_path: str = "state.json"):
+def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False, state_path: str = "state.json", gen_highlights: bool = False):
     """Runs the generation process using Vertex AI Batch Prediction."""
     client = get_bq_client(project)
     
@@ -351,10 +360,12 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
           id STRING,
           title STRING,
           description STRING,
+          highlights STRING,
           tries INT64,
           updated_at TIMESTAMP,
           raw_response_title STRING,
-          raw_response_description STRING
+          raw_response_description STRING,
+          raw_response_highlights STRING
         );
         """
         log_cb(f"Ensuring output table {output_id} exists...\n")
@@ -368,6 +379,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         targets = []
         if gen_titles: targets.append("Titles")
         if gen_desc: targets.append("Descriptions")
+        if gen_highlights: targets.append("Highlights")
         
         if not targets:
             log_cb("No targets selected for generation.\n")
@@ -376,12 +388,14 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         # Read prompt templates
         prompt_titles_path = "prompts/titles.txt"
         prompt_desc_path = "prompts/descriptions.txt"
+        prompt_highlights_path = "prompts/highlights.txt"
         try:
             with open('config.yaml', 'r') as f:
                 config = yaml.safe_load(f)
                 prompts_config = config.get('prompts', {})
                 prompt_titles_path = prompts_config.get('titles', prompt_titles_path)
                 prompt_desc_path = prompts_config.get('descriptions', prompt_desc_path)
+                prompt_highlights_path = prompts_config.get('highlights', prompt_highlights_path)
         except Exception:
             pass
             
@@ -389,6 +403,8 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
             titles_template = f.read()
         with open(prompt_desc_path, "r") as f:
             desc_template = f.read()
+        with open(prompt_highlights_path, "r") as f:
+            highlights_template = f.read()
             
         # Fetch data for prompt construction
         query_data = f"SELECT * FROM `{input_proc_id}`"
@@ -426,7 +442,14 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
             
             instances = []
             for row in rows:
-                sys_inst = titles_template if target == "Titles" else desc_template
+                if target == "Titles":
+                    sys_inst = titles_template
+                elif target == "Descriptions":
+                    sys_inst = desc_template
+                elif target == "Highlights":
+                    sys_inst = highlights_template
+                else:
+                    sys_inst = ""
                 sys_inst = sys_inst.replace("{{LANGUAGE}}", lang)
                 
                 examples_str = ""
