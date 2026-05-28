@@ -12,6 +12,7 @@ class GenerationScreen(ControlCenterBaseScreen):
         super().__init__(state)
         self.gen_titles = True
         self.gen_desc = True
+        self.gen_highlights = True
         
         # Full list of Gemini supported languages
         self.languages = [
@@ -157,18 +158,22 @@ class GenerationScreen(ControlCenterBaseScreen):
                 default_lang = self.state.get('language', 'English (en)')
 
                 with Horizontal(id="gen-row-1"):
-                    with Vertical(classes="col4"):
+                    with Vertical(classes="col3"):
                         yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
-                    with Vertical(classes="col4"):
+                    with Vertical(classes="col3"):
                         yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
-                    with Vertical(classes="col4"):
+                    with Vertical(classes="col3"):
+                        yield Button("[green]✔[/] Generate Highlights", id="toggle-highlights-btn")
+                        
+                with Horizontal(id="gen-row-2"):
+                    with Vertical(classes="col"):
                         yield Label("Gemini Model Version:")
                         yield Select(self.models, value=select_value, id="model")
-                    with Vertical(classes="col4"):
+                    with Vertical(classes="col"):
                         yield Label("Language:")
                         yield Select(self.languages, value=default_lang, id="language")
                         
-                with Horizontal(id="gen-row-2"):
+                with Horizontal(id="gen-row-3"):
                     with Vertical(classes="col"):
                         yield Label("Destination Table Name:")
                         yield Input(value=self.state.get('output_table', 'Output'), id="output-table")
@@ -184,6 +189,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             yield Label("Titles: Not started", id="titles-job-label", classes="job-label")
             yield Label("Descriptions: Not started", id="descriptions-job-label", classes="job-label")
+            yield Label("Highlights: Not started", id="highlights-job-label", classes="job-label")
             
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):
                 yield Log(id="process-logs")
@@ -309,7 +315,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             
             
             debug = getattr(self.state, 'debug', False)
-            self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, debug, model_val), thread=True)
+            self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, self.gen_highlights, debug, model_val), thread=True)
             
         elif event.button.id == "cancel-btn":
             self.app.is_cancelled = True
@@ -329,6 +335,13 @@ class GenerationScreen(ControlCenterBaseScreen):
                 event.button.label = "[green]✔[/] Generate Descriptions"
             else:
                 event.button.label = "[red]✘[/] Skip Descriptions"
+                
+        elif event.button.id == "toggle-highlights-btn":
+            self.gen_highlights = not self.gen_highlights
+            if self.gen_highlights:
+                event.button.label = "[green]✔[/] Generate Highlights"
+            else:
+                event.button.label = "[red]✘[/] Skip Highlights"
 
     def show_job_label(self, label_id: str, text: str):
         label = self.query_one(label_id, Label)
@@ -348,7 +361,7 @@ class GenerationScreen(ControlCenterBaseScreen):
         
 
                 
-    def run_generation(self, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, model_val: str) -> None:
+    def run_generation(self, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, gen_highlights: bool, debug: bool, model_val: str) -> None:
         self.log_content = ""
         self.write_log("Starting generation process...\n")
         
@@ -411,7 +424,8 @@ class GenerationScreen(ControlCenterBaseScreen):
                 model_val=model_val,
                 log_cb=self.write_log,
                 progress_cb=progress_cb,
-                is_cancelled=lambda: getattr(self.app, 'is_cancelled', False)
+                is_cancelled=lambda: getattr(self.app, 'is_cancelled', False),
+                gen_highlights=gen_highlights
             )
             
             if result.get('cancelled'):
