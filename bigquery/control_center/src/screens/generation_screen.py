@@ -434,6 +434,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                 return
                 
             self.state.set_step_status('gen', 'Completed')
+            self.state.set('ongoing_generation', None, save=True)
             self.app.call_from_thread(self.disable_cancel_button)
             self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")
             self.app.call_from_thread(self.query_one("#status-label", Label).update, "[green]Generation completed successfully![/]")
