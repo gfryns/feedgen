@@ -181,4 +181,28 @@ Grid#dialog {
     width: 100%;
 }
 
+#source-table-row {
+    align-vertical: middle;
+}
+
+#source-table-row Input {
+    width: 80%;
+}
+
+#source-table-row Button {
+    width: auto;
+    min-width: 7;
+    height: 3;
+    margin-top: -1;
+}
+
+#chk-row {
+    align-vertical: middle;
+}
+
+#chk-row Button {
+    margin-top: -1;
+    margin-right: 1;
+}
+
 
