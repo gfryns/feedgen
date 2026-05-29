@@ -48,6 +48,7 @@ class ControlCenterApp(App):
     def action_quit(self) -> None:
         """Handle quit action and set cancel flag."""
         self.is_cancelled = True
+        self.workers.cancel_all()
         self.exit()
 
     def on_mount(self) -> None:
@@ -75,8 +76,7 @@ class ControlCenterApp(App):
         self.update_dashboard()
         
         # Check for ongoing generation to resume
-        ongoing = self.state.get('ongoing_generation')
-        if ongoing:
+        if self.state.get_step_status('gen') == 'Processing':
             from screens.resume_modal import ResumeModal
             self.push_screen(ResumeModal(), self.on_resume_decision)
             

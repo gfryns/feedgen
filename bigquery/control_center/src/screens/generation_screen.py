@@ -158,27 +158,24 @@ class GenerationScreen(ControlCenterBaseScreen):
                 default_lang = self.state.get('language', 'English (en)')
 
                 with Horizontal(id="gen-row-1"):
-                    with Vertical(classes="col3"):
+                    with Vertical(classes="col5"):
                         yield Button("[green]✔[/] Generate Titles", id="toggle-titles-btn")
-                    with Vertical(classes="col3"):
+                    with Vertical(classes="col5"):
                         yield Button("[green]✔[/] Generate Descriptions", id="toggle-desc-btn")
-                    with Vertical(classes="col3"):
+                    with Vertical(classes="col5"):
                         yield Button("[green]✔[/] Generate Highlights", id="toggle-highlights-btn")
-                        
-                with Horizontal(id="gen-row-2"):
-                    with Vertical(classes="col"):
-                        yield Label("Gemini Model Version:")
+                    with Vertical(classes="col5"):
+                        yield Label("Model Version:")
                         yield Select(self.models, value=select_value, id="model")
-                    with Vertical(classes="col"):
+                    with Vertical(classes="col5"):
                         yield Label("Language:")
                         yield Select(self.languages, value=default_lang, id="language")
                         
-                with Horizontal(id="gen-row-3"):
+                with Horizontal(id="gen-row-2"):
                     with Vertical(classes="col"):
                         yield Label("Destination Table Name:")
                         yield Input(value=self.state.get('output_table', 'Output'), id="output-table")
-                    with Vertical(classes="col"):
-                        yield Input(value=custom_value, placeholder="Enter custom model ID", id="custom-model")
+
             
             with Horizontal():
                 yield Button("Run Generation", variant="success", id="run-btn")
@@ -200,10 +197,7 @@ class GenerationScreen(ControlCenterBaseScreen):
         saved_model = self.state.get('model', 'gemini-2.5-flash')
         model_options = [m[1] for m in self.models]
         
-        if saved_model not in model_options:
-            self.query_one("#custom-model").styles.display = "block"
-        else:
-            self.query_one("#custom-model").styles.display = "none"
+
             
         # Auto-resume if triggered from app start
         if self.state.get('auto_resume'):
@@ -281,17 +275,11 @@ class GenerationScreen(ControlCenterBaseScreen):
                 self.app.call_from_thread(self.disable_cancel_button)
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[red]Error: {e}[/]")
                 
-        import threading
-        threading.Thread(target=run_resume_thread, daemon=True).start()
+        self.run_worker(run_resume_thread, thread=True)
             
 
             
-    def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "model":
-            if event.value == "other":
-                self.query_one("#custom-model").styles.display = "block"
-            else:
-                self.query_one("#custom-model").styles.display = "none"
+
                 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
@@ -301,11 +289,7 @@ class GenerationScreen(ControlCenterBaseScreen):
             output_table = self.query_one("#output-table").value
             
             model_val = self.query_one("#model").value
-            if model_val == "other":
-                model_val = self.query_one("#custom-model").value
-                if not model_val:
-                    self.notify("Custom model ID is required!", severity="error")
-                    return
+
                     
             self.state.update_data({
                 'language': lang,
@@ -313,6 +297,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                 'model': model_val
             })
             
+            self.state.set_step_status('gen', 'Processing')
             
             debug = getattr(self.state, 'debug', False)
             self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, self.gen_highlights, debug, model_val), thread=True)
