@@ -5,6 +5,7 @@ from textual.containers import Vertical, Horizontal, Container
 from textual import on
 import asyncio
 from services.scraping_service import detect_css_selector, run_web_scraping
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class ScrapingScreen(ControlCenterBaseScreen):
     """Screen for Step 3c: Web Scraping."""
@@ -53,7 +54,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
             selector = self.query_one("#selector").value
-            self.state.set('selector', selector)
+            self.post_message(StateUpdateMessage('selector', selector))
             self.query_one("#progress-bar").styles.display = "block"
             self.run_worker(self.run_scraping(selector))
         elif event.button.id == "detect-selector-btn":
@@ -118,8 +119,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
             )
             self.query_one("#status-label", Label).update(report)
             
-            self.state.set_step_status('web', 'Completed')
-            self.state.invalidate_descendants('web')
+            self.post_message(StatusUpdateMessage('web', 'Completed'))
             
             self.notify("Web scraping completed successfully!", severity="information")
             

@@ -6,6 +6,7 @@ from services.bq_client import get_bq_client
 import asyncio
 import re
 import subprocess
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class OptionsScreen(ControlCenterBaseScreen):
     """Screen for Step 3b: Filtering Options."""
@@ -110,13 +111,13 @@ class OptionsScreen(ControlCenterBaseScreen):
             url_col = self.query_one("#url-col").value
             image_col = self.query_one("#image-col").value
             
-            self.state.set('include_cols', include_cols)
-            self.state.set('filters', filters)
-            self.state.set('id_col', id_col)
-            self.state.set('title_col', title_col)
-            self.state.set('desc_col', desc_col)
-            self.state.set('url_col', url_col)
-            self.state.set('image_col', image_col)
+            self.post_message(StateUpdateMessage('include_cols', include_cols))
+            self.post_message(StateUpdateMessage('filters', filters))
+            self.post_message(StateUpdateMessage('id_col', id_col))
+            self.post_message(StateUpdateMessage('title_col', title_col))
+            self.post_message(StateUpdateMessage('desc_col', desc_col))
+            self.post_message(StateUpdateMessage('url_col', url_col))
+            self.post_message(StateUpdateMessage('image_col', image_col))
             
             self.run_worker(self.create_filtered_table(id_col, title_col, desc_col, url_col, image_col, include_cols, filters))
             
@@ -136,8 +137,7 @@ class OptionsScreen(ControlCenterBaseScreen):
                 lambda: run_filter(project, dataset, raw_table, id_col, title_col, desc_col, url_col, image_col, include_cols, filters, self.write_log)
             )
             
-            self.state.set_step_status('filter', 'Completed')
-            self.state.invalidate_descendants('filter')
+            self.post_message(StatusUpdateMessage('filter', 'Completed'))
             
             self.notify("InputFiltered table created successfully!", severity="information")
             

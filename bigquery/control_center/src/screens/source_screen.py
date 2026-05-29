@@ -4,6 +4,7 @@ from textual.widgets import Header, Footer, Input, Button, Label, Static, DataTa
 from textual.containers import Vertical, Horizontal, Container
 import asyncio
 from services.bq_client import get_bq_client
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class SourceScreen(ControlCenterBaseScreen):
     """Screen for Step 3a: Source Table Setup."""
@@ -15,7 +16,10 @@ class SourceScreen(ControlCenterBaseScreen):
             
             with Container(classes="card"):
                 yield Label("Select Raw Input Table:")
-                yield Container(id="table-select-container")
+                with Horizontal(id="table-select-row"):
+                    yield Container(id="table-select-container")
+                    yield Button("Load Info", variant="primary", id="load-info-btn")
+                
                 yield Input(value=self.state.get('raw_table', 'InputRaw'), id="raw-table", placeholder="Enter custom table ID")
                 
                 yield Static(
@@ -23,8 +27,6 @@ class SourceScreen(ControlCenterBaseScreen):
                     "you can set up the [BigQuery Data Transfer Service](https://cloud.google.com/bigquery/docs/merchant-center-transfer).",
                     id="gmc-tip"
                 )
-                
-                yield Button("Load Input Table Info", variant="primary", id="load-info-btn")
             
             with Container(classes="card"):
                 yield Label("Table Preview", id="preview-title")
@@ -46,13 +48,9 @@ class SourceScreen(ControlCenterBaseScreen):
             self.run_worker(self.load_table_info(raw_table))
         elif event.button.id == "select-btn":
             raw_table = self.query_one("#raw-table").value
-            old_table = self.state.get('raw_table')
             
-            if raw_table != old_table:
-                self.state.invalidate_descendants('source')
-                
-            self.state.set('raw_table', raw_table)
-            self.state.set_step_status('source', 'Completed')
+            self.post_message(StateUpdateMessage('raw_table', raw_table))
+            self.post_message(StatusUpdateMessage('source', 'Completed'))
             self.dismiss(True)
             
     def on_mount(self) -> None:

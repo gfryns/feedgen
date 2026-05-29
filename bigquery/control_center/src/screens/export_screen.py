@@ -3,10 +3,20 @@ from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Log, Select, Checkbox
 from textual.containers import Vertical, Horizontal, Container
 from textual.markup import escape
+from textual.reactive import reactive
+from textual.css.query import NoMatches
 import asyncio
 
 class ExportScreen(ControlCenterBaseScreen):
     """Screen for Step 5: Export Feed."""
+    
+    export_title = reactive(True)
+    export_desc = reactive(True)
+    export_highlights = reactive(True)
+    
+    title_available = reactive(True)
+    desc_available = reactive(True)
+    highlights_available = reactive(True)
     
     def __init__(self, state):
         super().__init__(state)
@@ -21,9 +31,47 @@ class ExportScreen(ControlCenterBaseScreen):
             ("Google Sheets", "sheets")
         ]
         
-        self.export_title = True
-        self.export_desc = True
-        self.export_highlights = True
+    def watch_export_title(self, new_value: bool) -> None:
+        try:
+            self.query_one("#chk-title", Button).label = "[green]✔[/] Title" if new_value else "[red]✘[/] Title"
+        except NoMatches: pass
+        
+    def watch_export_desc(self, new_value: bool) -> None:
+        try:
+            self.query_one("#chk-desc", Button).label = "[green]✔[/] Desc" if new_value else "[red]✘[/] Desc"
+        except NoMatches: pass
+        
+    def watch_export_highlights(self, new_value: bool) -> None:
+        try:
+            self.query_one("#chk-highlights", Button).label = "[green]✔[/] Highlights" if new_value else "[red]✘[/] Highlights"
+        except NoMatches: pass
+        
+    def watch_title_available(self, new_value: bool) -> None:
+        try:
+            btn = self.query_one("#chk-title", Button)
+            btn.disabled = not new_value
+            if not new_value:
+                self.export_title = False
+                btn.label = "[gray]✘[/] Title"
+        except NoMatches: pass
+        
+    def watch_desc_available(self, new_value: bool) -> None:
+        try:
+            btn = self.query_one("#chk-desc", Button)
+            btn.disabled = not new_value
+            if not new_value:
+                self.export_desc = False
+                btn.label = "[gray]✘[/] Desc"
+        except NoMatches: pass
+        
+    def watch_highlights_available(self, new_value: bool) -> None:
+        try:
+            btn = self.query_one("#chk-highlights", Button)
+            btn.disabled = not new_value
+            if not new_value:
+                self.export_highlights = False
+                btn.label = "[gray]✘[/] Highlights"
+        except NoMatches: pass
         
     def compose(self) -> ComposeResult:
         yield Header()
@@ -137,21 +185,10 @@ class ExportScreen(ControlCenterBaseScreen):
                 self.notify("Schema loaded successfully!", severity="information")
                 self.query_one("#status-label", Label).update("[green]Schema loaded successfully![/]")
                 
-                # Update buttons
-                self.query_one("#chk-title").disabled = 'title' not in columns
-                self.query_one("#chk-desc").disabled = 'description' not in columns
-                self.query_one("#chk-highlights").disabled = 'highlights' not in columns
-                
-                # If disabled, update label too
-                if 'title' not in columns:
-                    self.export_title = False
-                    self.query_one("#chk-title").label = "[gray]✘[/] Title"
-                if 'description' not in columns:
-                    self.export_desc = False
-                    self.query_one("#chk-desc").label = "[gray]✘[/] Desc"
-                if 'highlights' not in columns:
-                    self.export_highlights = False
-                    self.query_one("#chk-highlights").label = "[gray]✘[/] Highlights"
+                # Update reactive attributes
+                self.title_available = 'title' in columns
+                self.desc_available = 'description' in columns
+                self.highlights_available = 'highlights' in columns
                 
             except Exception as e:
                 self.notify(f"Error loading schema: {e}", severity="error")
@@ -159,15 +196,12 @@ class ExportScreen(ControlCenterBaseScreen):
                 
         elif event.button.id == "chk-title":
             self.export_title = not self.export_title
-            event.button.label = "[green]✔[/] Title" if self.export_title else "[red]✘[/] Title"
             
         elif event.button.id == "chk-desc":
             self.export_desc = not self.export_desc
-            event.button.label = "[green]✔[/] Desc" if self.export_desc else "[red]✘[/] Desc"
             
         elif event.button.id == "chk-highlights":
             self.export_highlights = not self.export_highlights
-            event.button.label = "[green]✔[/] Highlights" if self.export_highlights else "[red]✘[/] Highlights"
                 
         elif event.button.id == "run-btn":
             feed_type = self.query_one("#feed-type").value
@@ -193,18 +227,16 @@ class ExportScreen(ControlCenterBaseScreen):
                 self.notify("Source Table name is required!", severity="error")
                 return
                 
-            self.state.update_data({
-                'feed_type': feed_type,
-                'destination_type': destination_type,
-                'raw_table': raw_table,
-                'export_table': export_table,
-                'gcs_bucket': self.query_one("#gcs-bucket").value,
-                'sheet_id': self.query_one("#sheet-id").value,
-                'export_sheet_name': sheet_name,
-                'destination_target': destination_target,
-                'filename': filename,
-                'export_source_table': raw_table
-            })
+            self.post_message(StateUpdateMessage('feed_type', feed_type))
+            self.post_message(StateUpdateMessage('destination_type', destination_type))
+            self.post_message(StateUpdateMessage('raw_table', raw_table))
+            self.post_message(StateUpdateMessage('export_table', export_table))
+            self.post_message(StateUpdateMessage('gcs_bucket', self.query_one("#gcs-bucket").value))
+            self.post_message(StateUpdateMessage('sheet_id', self.query_one("#sheet-id").value))
+            self.post_message(StateUpdateMessage('export_sheet_name', sheet_name))
+            self.post_message(StateUpdateMessage('destination_target', destination_target))
+            self.post_message(StateUpdateMessage('filename', filename))
+            self.post_message(StateUpdateMessage('export_source_table', raw_table))
             
             self.run_worker(self.run_export(feed_type, export_table, destination_type, destination_target, filename, raw_table, export_title, export_desc, export_highlights, sheet_name))
             
@@ -223,7 +255,7 @@ class ExportScreen(ControlCenterBaseScreen):
                 lambda: export_to_gmc(project, dataset, raw_table, output_table, export_table, feed_type, destination_type, destination_target, filename, sheet_name, self.write_log, export_title, export_desc, export_highlights)
             )
             
-            self.state.set_step_status('export', 'Completed')
+            self.post_message(StatusUpdateMessage('export', 'Completed'))
             
             self.notify("Export completed successfully!", severity="information")
             self.query_one("#status-label", Label).update("[green]Export completed successfully![/]")

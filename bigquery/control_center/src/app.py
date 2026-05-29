@@ -2,7 +2,9 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label, ListView, ListItem, DataTable
 from textual.containers import Horizontal, Vertical, Container
 from textual import on
+from textual.reactive import reactive
 from state_manager import ControlCenterStateManager
+from messages import StateUpdateMessage, StatusUpdateMessage
 from screens.setup_screen import SetupScreen
 from screens.source_screen import SourceScreen
 from screens.options_screen import OptionsScreen
@@ -13,11 +15,46 @@ from screens.generation_screen import GenerationScreen
 from screens.export_screen import ExportScreen
 from action_logger import log_action
 
+class StepListItem(ListItem):
+    def __init__(self, step_id: str, base_text: str):
+        super().__init__(id=step_id)
+        self.step_id = step_id
+        self.base_text = base_text
+        self.static = Static(f"● {base_text}")
+        
+    def compose(self) -> ComposeResult:
+        yield self.static
+        
+    def on_mount(self) -> None:
+        self.app.watch(self.app, "step_statuses", self.update_status)
+        
+    def update_status(self, step_statuses: dict) -> None:
+        if not hasattr(self.app, 'state'):
+            return
+            
+        status = self.app.get_computed_status(self.step_id)
+        
+        if status == 'Completed':
+            status_str = "[#009E73]●[/]"
+        elif status == 'Pending' or status == 'Processing':
+            status_str = "[#E69F00]●[/]"
+        elif 'Skipped' in status:
+            status_str = "[#9E9E9E]●[/]"
+        else:
+            status_str = "[#D55E00]●[/]"
+            
+        self.static.update(f"{status_str} {self.base_text}")
+
 class ControlCenterApp(App):
     """A Textual app for the FeedGen Control Center."""
     TITLE = "FeedGen"
     
     CSS_PATH = "styles.tcss"
+    
+    project_id = reactive("")
+    dataset_name = reactive("")
+    bucket_name = reactive("")
+    step_statuses = reactive({})
     
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -30,15 +67,15 @@ class ControlCenterApp(App):
             with Vertical(id="sidebar"):
                 yield Label("WIZARD STEPS", id="sidebar-title")
                 with ListView(id="steps-list"):
-                    yield ListItem(Static("1. Environment Setup", markup=True), id="project")
+                    yield StepListItem("project", "1. Environment Setup")
                     yield ListItem(Static("2. Input Setup", markup=True), id="input_header")
-                    yield ListItem(Static("   2a. Source Feed", markup=True), id="source")
-                    yield ListItem(Static("   2b. Feed Filtering", markup=True), id="filter")
-                    yield ListItem(Static("   2c. Import Product Pages Infos", markup=True), id="web")
-                    yield ListItem(Static("   2d. Import Product Images", markup=True), id="images")
-                    yield ListItem(Static("   2e. Select Examples", markup=True), id="examples")
-                    yield ListItem(Static("3. Generation options", markup=True), id="gen")
-                    yield ListItem(Static("4. Export to GMC", markup=True), id="export")
+                    yield StepListItem("source", "   2a. Source Feed")
+                    yield StepListItem("filter", "   2b. Feed Filtering")
+                    yield StepListItem("web", "   2c. Import Product Pages Infos")
+                    yield StepListItem("images", "   2d. Import Product Images")
+                    yield StepListItem("examples", "   2e. Select Examples")
+                    yield StepListItem("gen", "3. Generation options")
+                    yield StepListItem("export", "4. Export to GMC")
             with Container(id="main-content"):
                 yield Static(self.get_art(), id="dashboard-art", markup=True)
                 yield Label("--- Dashboard ---", id="dashboard-title", classes="bold")
@@ -60,6 +97,12 @@ class ControlCenterApp(App):
         self.is_cancelled = False
         self.state.debug = '--debug' in sys.argv
         
+        # Populate reactive attributes
+        self.project_id = self.state.get('project', '')
+        self.dataset_name = self.state.get('dataset', 'feedgen_dataset')
+        self.bucket_name = self.state.get('bucket', '')
+        self.step_statuses = self.state.get('steps', {})
+        
         if self.state.debug:
             from action_logger import DEBUG_LOG_FILE
             if os.path.exists(DEBUG_LOG_FILE):
@@ -72,7 +115,6 @@ class ControlCenterApp(App):
         table.cursor_type = "row"
         table.add_columns("Step", "Status", "Details")
         
-        self.update_sidebar_status()
         self.update_dashboard()
         
         # Check for ongoing generation to resume
@@ -80,6 +122,51 @@ class ControlCenterApp(App):
             from screens.resume_modal import ResumeModal
             self.push_screen(ResumeModal(), self.on_resume_decision)
             
+    def watch_step_statuses(self, new_value: dict) -> None:
+        try:
+            self.update_dashboard()
+        except Exception: pass
+        
+    def watch_project_id(self, new_value: str) -> None:
+        try:
+            self.update_dashboard()
+        except Exception: pass
+        
+    def watch_dataset_name(self, new_value: str) -> None:
+        try:
+            self.update_dashboard()
+        except Exception: pass
+        
+    def watch_bucket_name(self, new_value: str) -> None:
+        try:
+            self.update_dashboard()
+        except Exception: pass
+        
+    @on(StateUpdateMessage)
+    def on_state_update(self, message: StateUpdateMessage) -> None:
+        old_val = self.state.get(message.key)
+        self.state.set(message.key, message.value)
+        
+        if message.key == 'raw_table' and message.value != old_val:
+            self.state.invalidate_descendants('source')
+            
+        if message.key == 'project':
+            self.project_id = message.value
+        elif message.key == 'dataset':
+            self.dataset_name = message.value
+        elif message.key == 'bucket':
+            self.bucket_name = message.value
+            
+    @on(StatusUpdateMessage)
+    def on_status_update(self, message: StatusUpdateMessage) -> None:
+        self.state.set_step_status(message.step, message.status)
+        
+        if message.status == 'Completed' and message.step in ['source', 'filter']:
+            self.state.invalidate_descendants(message.step)
+            self.step_statuses = self.state.get('steps', {})
+        else:
+            self.step_statuses = {**self.step_statuses, message.step: message.status}
+        
     def on_resume_decision(self, resume: bool) -> None:
         if resume:
             self.state.set('auto_resume', True, save=False)
@@ -110,6 +197,7 @@ class ControlCenterApp(App):
             
             from services.generation_service import update_ongoing_state
             update_ongoing_state(clear=True)
+            self.state.set_step_status('gen', 'Pending')
         
     def get_computed_status(self, step: str) -> str:
         """Calculate the display status based on state and dependencies."""
@@ -139,46 +227,18 @@ class ControlCenterApp(App):
             
         if status == 'Completed':
             return 'Completed'
+        elif status == 'Processing':
+            return 'Processing'
         elif allowed:
             return 'Pending'
         else:
             return 'Not Ready'
 
-    def update_sidebar_status(self) -> None:
-        """Update the status labels in the sidebar."""
-        base_texts = {
-            'project': "1. Environment Setup",
-            'source': "   2a. Source Feed",
-            'filter': "   2b. Feed Filtering",
-            'web': "   2c. Import Product Pages Infos",
-            'images': "   2d. Import Product Images",
-            'examples': "   2e. Select Examples",
-            'gen': "3. Generation options",
-            'export': "4. Export to GMC"
-        }
-        
-        for step, base_text in base_texts.items():
-            status = self.get_computed_status(step)
-            
-            if status == 'Completed':
-                status_str = "[#009E73]●[/]"
-            elif status == 'Pending':
-                status_str = "[#E69F00]●[/]"
-            elif 'Skipped' in status:
-                status_str = "[#9E9E9E]●[/]"
-            else:
-                status_str = "[#D55E00]●[/]"
-                
-            try:
-                item = self.query_one(f"#{step}", ListItem)
-                static = item.query_one(Static)
-                static.update(f"{status_str} {base_text}")
-            except Exception:
-                pass
+
                 
     def get_color(self, status: str) -> str:
         if status == 'Completed': return "#009E73"
-        if status == 'Pending': return "#E69F00"
+        if status == 'Pending' or status == 'Processing': return "#E69F00"
         if status == 'Not Ready': return "#D55E00"
         if 'Skipped' in status: return "#9E9E9E"
         return "white"
@@ -200,8 +260,8 @@ class ControlCenterApp(App):
         table.clear()
         
         state = self.state
-        project = state.get('project', 'N/A')
-        dataset = state.get('dataset', 'N/A')
+        project = self.project_id or 'N/A'
+        dataset = self.dataset_name or 'N/A'
         
         steps_data = [
             ('project', '1. Environment Setup', f"Project: {project} | Dataset: {dataset}"),
@@ -262,7 +322,6 @@ class ControlCenterApp(App):
         """Callback when a screen is dismissed."""
         if getattr(self.state, 'debug', False):
             log_action("Screen Dismissed", f"Result: {result}")
-        self.update_sidebar_status()
         self.update_dashboard()
 
 if __name__ == "__main__":

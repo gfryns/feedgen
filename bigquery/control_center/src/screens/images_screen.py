@@ -6,6 +6,7 @@ from services.bq_client import get_bq_client
 import asyncio
 import math
 import services.images_service as img_srv
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class ImagesScreen(ControlCenterBaseScreen):
     """Screen for Step 3d: Image Processing."""
@@ -114,7 +115,7 @@ class ImagesScreen(ControlCenterBaseScreen):
         bucket = self.query_one("#bucket").value
         
         if event.button.id == "run-btn":
-            self.state.set('bucket', bucket)
+            self.post_message(StateUpdateMessage('bucket', bucket))
             self.query_one("#progress-bar").styles.display = "block"
             self.run_worker(lambda: self.run_images(bucket), thread=True)
         elif event.button.id == "create-btn":
@@ -158,8 +159,7 @@ class ImagesScreen(ControlCenterBaseScreen):
             self.notify(f"Deleted {count} images!", severity="information")
             self.query_one("#status-label", Label).update(f"[green]Done! Deleted {count} images.[/]")
             
-            self.state.set_step_status('images', 'Pending')
-            self.state.invalidate_descendants('images')
+            self.post_message(StatusUpdateMessage('images', 'Pending'))
             
             self.run_worker(self.load_bucket_info)
         except Exception as e:
@@ -206,8 +206,7 @@ class ImagesScreen(ControlCenterBaseScreen):
             self.app.call_from_thread(self.run_worker, self.load_bucket_info)
             self.app.call_from_thread(self.notify, "Image processing completed!", severity="information")
             
-            self.state.set_step_status('images', 'Completed')
-            self.state.invalidate_descendants('images')
+            self.post_message(StatusUpdateMessage('images', 'Completed'))
             
         except Exception as e:
             self.write_log(f"Error: {e}\n")

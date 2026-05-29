@@ -205,4 +205,17 @@ Grid#dialog {
     margin-right: 1;
 }
 
+#table-select-row {
+    align-vertical: middle;
+}
+
+#table-select-container {
+    width: 70%;
+}
+
+#load-info-btn {
+    width: auto;
+    min-width: 10;
+}
+
 

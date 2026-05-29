@@ -3,20 +3,35 @@ from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, Select, DataTable
 from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
+from textual.reactive import reactive
+from textual.css.query import NoMatches
 import asyncio
 import services.examples_service as ex_srv
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class ExamplesScreen(ControlCenterBaseScreen):
     """Screen for Step 3e: Manage Examples."""
     
     def __init__(self, state):
         super().__init__(state)
-        self.sheet_header = True
+        self.examples_method = self.state.get('examples_method', 'sheet')
         
         self.methods = [
             ("Load from Google Spreadsheet", "sheet"),
             ("Pick specific products by ID", "ids")
         ]
+        
+    def watch_sheet_header(self, new_value: bool) -> None:
+        try:
+            self.query_one("#header-btn", Button).label = "[green]✔[/] Has Header" if new_value else "[red]✘[/] No Header"
+        except NoMatches: pass
+        
+    def watch_examples_method(self, new_value: str) -> None:
+        try:
+            for m in ["sheet", "ids"]:
+                self.query_one(f"#{m}-container").styles.display = "none"
+            self.query_one(f"#{new_value}-container").styles.display = "block"
+        except NoMatches: pass
         
     def compose(self) -> ComposeResult:
         yield Header()
@@ -72,34 +87,25 @@ class ExamplesScreen(ControlCenterBaseScreen):
         
     def on_mount(self) -> None:
         """Initialize view."""
-        method = self.state.get('examples_method', 'sheet')
-        for m in ["sheet", "ids"]:
-            self.query_one(f"#{m}-container").styles.display = "none"
-        self.query_one(f"#{method}-container").styles.display = "block"
         self.run_worker(self.load_examples_preview)
         
     def on_select_changed(self, event: Select.Changed) -> None:
-        # Hide all containers
-        for m in ["sheet", "ids"]:
-            self.query_one(f"#{m}-container").styles.display = "none"
-            
-        # Show selected
         if event.value:
-            self.query_one(f"#{event.value}-container").styles.display = "block"
+            self.examples_method = event.value
             
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "run-btn":
             method = self.query_one("#method-select").value
-            self.state.set('examples_method', method)
+            self.post_message(StateUpdateMessage('examples_method', method))
             
             if method == "sheet":
                 url = self.query_one("#sheet-url").value
                 name = self.query_one("#sheet-name").value
                 range_val = self.query_one("#sheet-range").value
                 
-                self.state.set('sheet_url', url)
-                self.state.set('sheet_name', name)
-                self.state.set('sheet_range', range_val)
+                self.post_message(StateUpdateMessage('sheet_url', url))
+                self.post_message(StateUpdateMessage('sheet_name', name))
+                self.post_message(StateUpdateMessage('sheet_range', range_val))
                 
                 self.run_worker(self.load_from_sheet(url, name, range_val, self.sheet_header))
             elif method == "ids":
@@ -110,10 +116,6 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 
         elif event.button.id == "header-btn":
             self.sheet_header = not self.sheet_header
-            if self.sheet_header:
-                event.button.label = "[green]✔[/] Has Header"
-            else:
-                event.button.label = "[red]✘[/] No Header"
                 
         elif event.button.id == "delete-btn":
             self.run_worker(self.clear_examples())
@@ -134,9 +136,9 @@ class ExamplesScreen(ControlCenterBaseScreen):
             
             # Update status in state based on actual count
             if total_count > 0:
-                self.state.set_step_status('examples', 'Completed')
+                self.post_message(StatusUpdateMessage('examples', 'Completed'))
             else:
-                self.state.set_step_status('examples', 'Pending')
+                self.post_message(StatusUpdateMessage('examples', 'Pending'))
             
             table_widget = self.query_one("#examples-preview", DataTable)
             table_widget.clear(columns=True)
@@ -167,8 +169,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 lambda: ex_srv.load_examples_from_sheet(project, dataset, url, sheet_name, range_val, has_header, self.write_log)
             )
             
-            self.state.set_step_status('examples', 'Completed')
-            self.state.invalidate_descendants('examples')
+            self.post_message(StatusUpdateMessage('examples', 'Completed'))
             self.notify("Examples loaded successfully!", severity="information")
             
             # Refresh preview
@@ -201,8 +202,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             if missing_ids:
                 self.notify(f"Warning: {len(missing_ids)} IDs not found! Check logs.", severity="warning")
                 
-            self.state.set_step_status('examples', 'Completed')
-            self.state.invalidate_descendants('examples')
+            self.post_message(StatusUpdateMessage('examples', 'Completed'))
             self.notify("Examples created successfully!", severity="information")
             
             # Refresh preview
@@ -224,8 +224,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             await loop.run_in_executor(None, lambda: ex_srv.clear_examples(project, dataset))
             
             self.write_log("Examples cleared.\n")
-            self.state.set_step_status('examples', 'Pending')
-            self.state.invalidate_descendants('examples')
+            self.post_message(StatusUpdateMessage('examples', 'Pending'))
             self.notify("Examples cleared.", severity="information")
             
             # Refresh preview

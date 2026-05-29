@@ -4,11 +4,16 @@ from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, S
 from textual.containers import Vertical, Horizontal, Container
 from textual.markup import escape
 from validators import is_valid_dataset_name, is_valid_project_id
+from textual.reactive import reactive
 import asyncio
 import yaml
+from messages import StateUpdateMessage, StatusUpdateMessage
 
 class SetupScreen(ControlCenterBaseScreen):
     """Screen for combined Setup: Project, Dataset, Bucket."""
+    
+    is_deploying = reactive(False)
+    status_text = reactive("")
     
     def __init__(self, state):
         super().__init__(state)
@@ -21,6 +26,16 @@ class SetupScreen(ControlCenterBaseScreen):
         except Exception as e:
             self.write_log(f"Error loading config.yaml: {e}\n")
             self.regions = [("EU", "EU"), ("US", "US")]
+            
+    def watch_is_deploying(self, new_value: bool) -> None:
+        try:
+            self.query_one("#loading").styles.display = "block" if new_value else "none"
+        except Exception: pass
+        
+    def watch_status_text(self, new_value: str) -> None:
+        try:
+            self.query_one("#status-label").update(new_value)
+        except Exception: pass
             
     def compose(self) -> ComposeResult:
         yield Header()
@@ -94,16 +109,14 @@ class SetupScreen(ControlCenterBaseScreen):
                 self.notify("Invalid Dataset Name.", severity="error")
                 return
                 
-            # Save to state
-            self.state.update_data({
-                'project': project_val,
-                'dataset': dataset_val,
-                'region': region_val,
-                'bucket': bucket_val
-            })
+            # Save to state via messages
+            self.post_message(StateUpdateMessage('project', project_val))
+            self.post_message(StateUpdateMessage('dataset', dataset_val))
+            self.post_message(StateUpdateMessage('region', region_val))
+            self.post_message(StateUpdateMessage('bucket', bucket_val))
             
-            self.query_one("#loading").styles.display = "block"
-            self.query_one("#status-label").update("Status: Deploying...")
+            self.is_deploying = True
+            self.status_text = "Status: Deploying..."
             
             self.run_worker(self.deploy_all(project_val, dataset_val, region_val, bucket_val))
             
@@ -136,18 +149,18 @@ class SetupScreen(ControlCenterBaseScreen):
                     )
                 )
             
-            # Set step statuses
-            self.state.set_step_status('config', 'Completed', save=False)
-            self.state.set_step_status('infra', 'Completed', save=False)
-            self.state.set_step_status('dataset', 'Completed', save=False)
-            self.state.set_step_status('procedures', 'Completed') 
+            # Set step statuses via messages
+            self.post_message(StatusUpdateMessage('config', 'Completed'))
+            self.post_message(StatusUpdateMessage('infra', 'Completed'))
+            self.post_message(StatusUpdateMessage('dataset', 'Completed'))
+            self.post_message(StatusUpdateMessage('procedures', 'Completed')) 
             
-            self.query_one("#loading").styles.display = "none"
-            self.query_one("#status-label").update("[green]Status: Setup completed successfully![/]")
+            self.is_deploying = False
+            self.status_text = "[green]Status: Setup completed successfully![/]"
             self.notify("Setup completed!", severity="information")
             
         except Exception as e:
-            self.query_one("#loading").styles.display = "none"
-            self.query_one("#status-label").update(f"[red]Status: Error: {escape(str(e))}[/]")
+            self.is_deploying = False
+            self.status_text = f"[red]Status: Error: {escape(str(e))}[/]"
             self.notify(f"Error: {e}", severity="error")
             self.write_log(f"Error: {e}\n")

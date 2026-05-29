@@ -3,131 +3,132 @@ from screens.base_screen import ControlCenterBaseScreen
 from textual.widgets import Header, Footer, Input, Button, Label, Collapsible, Static, Log, ProgressBar, Select
 from textual.containers import Vertical, Horizontal, Container
 from services.bq_client import get_bq_client
+from textual.reactive import reactive
+from textual.css.query import NoMatches
 import services.generation_service as gen_srv
+from messages import StateUpdateMessage, StatusUpdateMessage
+
+LANGUAGES = [
+    ("Afrikaans (af)", "Afrikaans (af)"),
+    ("Albanian (sq)", "Albanian (sq)"),
+    ("Amharic (am)", "Amharic (am)"),
+    ("Arabic (ar)", "Arabic (ar)"),
+    ("Armenian (hy)", "Armenian (hy)"),
+    ("Assamese (as)", "Assamese (as)"),
+    ("Azerbaijani (az)", "Azerbaijani (az)"),
+    ("Basque (eu)", "Basque (eu)"),
+    ("Belarusian (be)", "Belarusian (be)"),
+    ("Bengali (bn)", "Bengali (bn)"),
+    ("Bosnian (bs)", "Bosnian (bs)"),
+    ("Bulgarian (bg)", "Bulgarian (bg)"),
+    ("Catalan (ca)", "Catalan (ca)"),
+    ("Cebuano (ceb)", "Cebuano (ceb)"),
+    ("Chinese (Simplified and Traditional) (zh)", "Chinese (Simplified and Traditional) (zh)"),
+    ("Corsican (co)", "Corsican (co)"),
+    ("Croatian (hr)", "Croatian (hr)"),
+    ("Czech (cs)", "Czech (cs)"),
+    ("Danish (da)", "Danish (da)"),
+    ("Dhivehi (dv)", "Dhivehi (dv)"),
+    ("Dutch (nl)", "Dutch (nl)"),
+    ("English (en)", "English (en)"),
+    ("Esperanto (eo)", "Esperanto (eo)"),
+    ("Estonian (et)", "Estonian (et)"),
+    ("Filipino (Tagalog) (fil)", "Filipino (Tagalog) (fil)"),
+    ("Finnish (fi)", "Finnish (fi)"),
+    ("French (fr)", "French (fr)"),
+    ("Frisian (fy)", "Frisian (fy)"),
+    ("Galician (gl)", "Galician (gl)"),
+    ("Georgian (ka)", "Georgian (ka)"),
+    ("German (de)", "German (de)"),
+    ("Greek (el)", "Greek (el)"),
+    ("Gujarati (gu)", "Gujarati (gu)"),
+    ("Haitian Creole (ht)", "Haitian Creole (ht)"),
+    ("Hausa (ha)", "Hausa (ha)"),
+    ("Hawaiian (haw)", "Hawaiian (haw)"),
+    ("Hebrew (iw)", "Hebrew (iw)"),
+    ("Hindi (hi)", "Hindi (hi)"),
+    ("Hmong (hmn)", "Hmong (hmn)"),
+    ("Hungarian (hu)", "Hungarian (hu)"),
+    ("Icelandic (is)", "Icelandic (is)"),
+    ("Igbo (ig)", "Igbo (ig)"),
+    ("Indonesian (id)", "Indonesian (id)"),
+    ("Irish (ga)", "Irish (ga)"),
+    ("Italian (it)", "Italian (it)"),
+    ("Japanese (ja)", "Japanese (ja)"),
+    ("Javanese (jv)", "Javanese (jv)"),
+    ("Kannada (kn)", "Kannada (kn)"),
+    ("Kazakh (kk)", "Kazakh (kk)"),
+    ("Khmer (km)", "Khmer (km)"),
+    ("Korean (ko)", "Korean (ko)"),
+    ("Krio (kri)", "Krio (kri)"),
+    ("Kurdish (ku)", "Kurdish (ku)"),
+    ("Kyrgyz (ky)", "Kyrgyz (ky)"),
+    ("Lao (lo)", "Lao (lo)"),
+    ("Latin (la)", "Latin (la)"),
+    ("Latvian (lv)", "Latvian (lv)"),
+    ("Lithuanian (lt)", "Lithuanian (lt)"),
+    ("Luxembourgish (lb)", "Luxembourgish (lb)"),
+    ("Macedonian (mk)", "Macedonian (mk)"),
+    ("Malagasy (mg)", "Malagasy (mg)"),
+    ("Malay (ms)", "Malay (ms)"),
+    ("Malayalam (ml)", "Malayalam (ml)"),
+    ("Maltese (mt)", "Maltese (mt)"),
+    ("Maori (mi)", "Maori (mi)"),
+    ("Marathi (mr)", "Marathi (mr)"),
+    ("Meiteilon (Manipuri) (mni-Mtei)", "Meiteilon (Manipuri) (mni-Mtei)"),
+    ("Mongolian (mn)", "Mongolian (mn)"),
+    ("Myanmar (Burmese) (my)", "Myanmar (Burmese) (my)"),
+    ("Nepali (ne)", "Nepali (ne)"),
+    ("Norwegian (no)", "Norwegian (no)"),
+    ("Nyanja (Chichewa) (ny)", "Nyanja (Chichewa) (ny)"),
+    ("Odia (Oriya) (or)", "Odia (Oriya) (or)"),
+    ("Pashto (ps)", "Pashto (ps)"),
+    ("Persian (fa)", "Persian (fa)"),
+    ("Polish (pl)", "Polish (pl)"),
+    ("Portuguese (pt)", "Portuguese (pt)"),
+    ("Punjabi (pa)", "Punjabi (pa)"),
+    ("Romanian (ro)", "Romanian (ro)"),
+    ("Russian (ru)", "Russian (ru)"),
+    ("Samoan (sm)", "Samoan (sm)"),
+    ("Scots Gaelic (gd)", "Scots Gaelic (gd)"),
+    ("Serbian (sr)", "Serbian (sr)"),
+    ("Sesotho (st)", "Sesotho (st)"),
+    ("Shona (sn)", "Shona (sn)"),
+    ("Sindhi (sd)", "Sindhi (sd)"),
+    ("Sinhala (Sinhalese) (si)", "Sinhala (Sinhalese) (si)"),
+    ("Slovak (sk)", "Slovak (sk)"),
+    ("Slovenian (sl)", "Slovenian (sl)"),
+    ("Somali (so)", "Somali (so)"),
+    ("Spanish (es)", "Spanish (es)"),
+    ("Sundanese (su)", "Sundanese (su)"),
+    ("Swahili (sw)", "Swahili (sw)"),
+    ("Swedish (sv)", "Swedish (sv)"),
+    ("Tajik (tg)", "Tajik (tg)"),
+    ("Tamil (ta)", "Tamil (ta)"),
+    ("Telugu (te)", "Telugu (te)"),
+    ("Thai (th)", "Thai (th)"),
+    ("Turkish (tr)", "Turkish (tr)"),
+    ("Ukrainian (uk)", "Ukrainian (uk)"),
+    ("Urdu (ur)", "Urdu (ur)"),
+    ("Uyghur (ug)", "Uyghur (ug)"),
+    ("Uzbek (uz)", "Uzbek (uz)"),
+    ("Vietnamese (vi)", "Vietnamese (vi)"),
+    ("Welsh (cy)", "Welsh (cy)"),
+    ("Xhosa (xh)", "Xhosa (xh)"),
+    ("Yiddish (yi)", "Yiddish (yi)"),
+    ("Yoruba (yo)", "Yoruba (yo)"),
+    ("Zulu (zu)", "Zulu (zu)")
+]
 
 class GenerationScreen(ControlCenterBaseScreen):
     """Screen for Step 4: Generation Options."""
     
+    gen_titles = reactive(True)
+    gen_desc = reactive(True)
+    gen_highlights = reactive(True)
+    
     def __init__(self, state):
         super().__init__(state)
-        self.gen_titles = True
-        self.gen_desc = True
-        self.gen_highlights = True
-        
-        # Full list of Gemini supported languages
-        self.languages = [
-            ("Afrikaans (af)", "Afrikaans (af)"),
-            ("Albanian (sq)", "Albanian (sq)"),
-            ("Amharic (am)", "Amharic (am)"),
-            ("Arabic (ar)", "Arabic (ar)"),
-            ("Armenian (hy)", "Armenian (hy)"),
-            ("Assamese (as)", "Assamese (as)"),
-            ("Azerbaijani (az)", "Azerbaijani (az)"),
-            ("Basque (eu)", "Basque (eu)"),
-            ("Belarusian (be)", "Belarusian (be)"),
-            ("Bengali (bn)", "Bengali (bn)"),
-            ("Bosnian (bs)", "Bosnian (bs)"),
-            ("Bulgarian (bg)", "Bulgarian (bg)"),
-            ("Catalan (ca)", "Catalan (ca)"),
-            ("Cebuano (ceb)", "Cebuano (ceb)"),
-            ("Chinese (Simplified and Traditional) (zh)", "Chinese (Simplified and Traditional) (zh)"),
-            ("Corsican (co)", "Corsican (co)"),
-            ("Croatian (hr)", "Croatian (hr)"),
-            ("Czech (cs)", "Czech (cs)"),
-            ("Danish (da)", "Danish (da)"),
-            ("Dhivehi (dv)", "Dhivehi (dv)"),
-            ("Dutch (nl)", "Dutch (nl)"),
-            ("English (en)", "English (en)"),
-            ("Esperanto (eo)", "Esperanto (eo)"),
-            ("Estonian (et)", "Estonian (et)"),
-            ("Filipino (Tagalog) (fil)", "Filipino (Tagalog) (fil)"),
-            ("Finnish (fi)", "Finnish (fi)"),
-            ("French (fr)", "French (fr)"),
-            ("Frisian (fy)", "Frisian (fy)"),
-            ("Galician (gl)", "Galician (gl)"),
-            ("Georgian (ka)", "Georgian (ka)"),
-            ("German (de)", "German (de)"),
-            ("Greek (el)", "Greek (el)"),
-            ("Gujarati (gu)", "Gujarati (gu)"),
-            ("Haitian Creole (ht)", "Haitian Creole (ht)"),
-            ("Hausa (ha)", "Hausa (ha)"),
-            ("Hawaiian (haw)", "Hawaiian (haw)"),
-            ("Hebrew (iw)", "Hebrew (iw)"),
-            ("Hindi (hi)", "Hindi (hi)"),
-            ("Hmong (hmn)", "Hmong (hmn)"),
-            ("Hungarian (hu)", "Hungarian (hu)"),
-            ("Icelandic (is)", "Icelandic (is)"),
-            ("Igbo (ig)", "Igbo (ig)"),
-            ("Indonesian (id)", "Indonesian (id)"),
-            ("Irish (ga)", "Irish (ga)"),
-            ("Italian (it)", "Italian (it)"),
-            ("Japanese (ja)", "Japanese (ja)"),
-            ("Javanese (jv)", "Javanese (jv)"),
-            ("Kannada (kn)", "Kannada (kn)"),
-            ("Kazakh (kk)", "Kazakh (kk)"),
-            ("Khmer (km)", "Khmer (km)"),
-            ("Korean (ko)", "Korean (ko)"),
-            ("Krio (kri)", "Krio (kri)"),
-            ("Kurdish (ku)", "Kurdish (ku)"),
-            ("Kyrgyz (ky)", "Kyrgyz (ky)"),
-            ("Lao (lo)", "Lao (lo)"),
-            ("Latin (la)", "Latin (la)"),
-            ("Latvian (lv)", "Latvian (lv)"),
-            ("Lithuanian (lt)", "Lithuanian (lt)"),
-            ("Luxembourgish (lb)", "Luxembourgish (lb)"),
-            ("Macedonian (mk)", "Macedonian (mk)"),
-            ("Malagasy (mg)", "Malagasy (mg)"),
-            ("Malay (ms)", "Malay (ms)"),
-            ("Malayalam (ml)", "Malayalam (ml)"),
-            ("Maltese (mt)", "Maltese (mt)"),
-            ("Maori (mi)", "Maori (mi)"),
-            ("Marathi (mr)", "Marathi (mr)"),
-            ("Meiteilon (Manipuri) (mni-Mtei)", "Meiteilon (Manipuri) (mni-Mtei)"),
-            ("Mongolian (mn)", "Mongolian (mn)"),
-            ("Myanmar (Burmese) (my)", "Myanmar (Burmese) (my)"),
-            ("Nepali (ne)", "Nepali (ne)"),
-            ("Norwegian (no)", "Norwegian (no)"),
-            ("Nyanja (Chichewa) (ny)", "Nyanja (Chichewa) (ny)"),
-            ("Odia (Oriya) (or)", "Odia (Oriya) (or)"),
-            ("Pashto (ps)", "Pashto (ps)"),
-            ("Persian (fa)", "Persian (fa)"),
-            ("Polish (pl)", "Polish (pl)"),
-            ("Portuguese (pt)", "Portuguese (pt)"),
-            ("Punjabi (pa)", "Punjabi (pa)"),
-            ("Romanian (ro)", "Romanian (ro)"),
-            ("Russian (ru)", "Russian (ru)"),
-            ("Samoan (sm)", "Samoan (sm)"),
-            ("Scots Gaelic (gd)", "Scots Gaelic (gd)"),
-            ("Serbian (sr)", "Serbian (sr)"),
-            ("Sesotho (st)", "Sesotho (st)"),
-            ("Shona (sn)", "Shona (sn)"),
-            ("Sindhi (sd)", "Sindhi (sd)"),
-            ("Sinhala (Sinhalese) (si)", "Sinhala (Sinhalese) (si)"),
-            ("Slovak (sk)", "Slovak (sk)"),
-            ("Slovenian (sl)", "Slovenian (sl)"),
-            ("Somali (so)", "Somali (so)"),
-            ("Spanish (es)", "Spanish (es)"),
-            ("Sundanese (su)", "Sundanese (su)"),
-            ("Swahili (sw)", "Swahili (sw)"),
-            ("Swedish (sv)", "Swedish (sv)"),
-            ("Tajik (tg)", "Tajik (tg)"),
-            ("Tamil (ta)", "Tamil (ta)"),
-            ("Telugu (te)", "Telugu (te)"),
-            ("Thai (th)", "Thai (th)"),
-            ("Turkish (tr)", "Turkish (tr)"),
-            ("Ukrainian (uk)", "Ukrainian (uk)"),
-            ("Urdu (ur)", "Urdu (ur)"),
-            ("Uyghur (ug)", "Uyghur (ug)"),
-            ("Uzbek (uz)", "Uzbek (uz)"),
-            ("Vietnamese (vi)", "Vietnamese (vi)"),
-            ("Welsh (cy)", "Welsh (cy)"),
-            ("Xhosa (xh)", "Xhosa (xh)"),
-            ("Yiddish (yi)", "Yiddish (yi)"),
-            ("Yoruba (yo)", "Yoruba (yo)"),
-            ("Zulu (zu)", "Zulu (zu)")
-        ]
-        
-        self.workers_options = [("1", 1), ("2", 2), ("3", 3), ("4", 4), ("5", 5)]
         
         try:
             import yaml
@@ -136,6 +137,25 @@ class GenerationScreen(ControlCenterBaseScreen):
                 self.models = [(m['label'], m['value']) for m in config.get('models', [])]
         except Exception:
             self.models = [("Gemini 2.5 Flash", "gemini-2.5-flash")]
+        
+    def watch_gen_titles(self, new_value: bool) -> None:
+        try:
+            self.query_one("#toggle-titles-btn", Button).label = "[green]✔[/] Generate Titles" if new_value else "[red]✘[/] Skip Titles"
+        except NoMatches: pass
+        
+    def watch_gen_desc(self, new_value: bool) -> None:
+        try:
+            self.query_one("#toggle-desc-btn", Button).label = "[green]✔[/] Generate Descriptions" if new_value else "[red]✘[/] Skip Descriptions"
+        except NoMatches: pass
+        
+    def watch_gen_highlights(self, new_value: bool) -> None:
+        try:
+            self.query_one("#toggle-highlights-btn", Button).label = "[green]✔[/] Generate Highlights" if new_value else "[red]✘[/] Skip Highlights"
+        except NoMatches: pass
+        
+        self.workers_options = [("1", 1), ("2", 2), ("3", 3), ("4", 4), ("5", 5)]
+        
+
             
     def compose(self) -> ComposeResult:
         yield Header()
@@ -169,7 +189,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                         yield Select(self.models, value=select_value, id="model")
                     with Vertical(classes="col5"):
                         yield Label("Language:")
-                        yield Select(self.languages, value=default_lang, id="language")
+                        yield Select(LANGUAGES, value=default_lang, id="language")
                         
                 with Horizontal(id="gen-row-2"):
                     with Vertical(classes="col"):
@@ -199,10 +219,11 @@ class GenerationScreen(ControlCenterBaseScreen):
         
 
             
-        # Auto-resume if triggered from app start
-        if self.state.get('auto_resume'):
-            self.state.set('auto_resume', False, save=False)
-            self.run_resume()
+        # Auto-resume or manual navigation resume if processing
+        if self.state.get_step_status('gen') == 'Processing':
+            # Only start if not already running
+            if not any(w.name == "resume_worker" for w in self.workers):
+                self.run_resume()
             
     def on_resume_decision(self, resume: bool) -> None:
         if resume:
@@ -275,7 +296,7 @@ class GenerationScreen(ControlCenterBaseScreen):
                 self.app.call_from_thread(self.disable_cancel_button)
                 self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[red]Error: {e}[/]")
                 
-        self.run_worker(run_resume_thread, thread=True)
+        self.run_worker(run_resume_thread, thread=True, name="resume_worker")
             
 
             
@@ -291,13 +312,11 @@ class GenerationScreen(ControlCenterBaseScreen):
             model_val = self.query_one("#model").value
 
                     
-            self.state.update_data({
-                'language': lang,
-                'output_table': output_table,
-                'model': model_val
-            })
+            self.post_message(StateUpdateMessage('language', lang))
+            self.post_message(StateUpdateMessage('output_table', output_table))
+            self.post_message(StateUpdateMessage('model', model_val))
             
-            self.state.set_step_status('gen', 'Processing')
+            self.post_message(StatusUpdateMessage('gen', 'Processing'))
             
             debug = getattr(self.state, 'debug', False)
             self.run_worker(lambda: self.run_generation(lang, output_table, self.gen_titles, self.gen_desc, self.gen_highlights, debug, model_val), thread=True)
@@ -309,24 +328,12 @@ class GenerationScreen(ControlCenterBaseScreen):
             
         elif event.button.id == "toggle-titles-btn":
             self.gen_titles = not self.gen_titles
-            if self.gen_titles:
-                event.button.label = "[green]✔[/] Generate Titles"
-            else:
-                event.button.label = "[red]✘[/] Skip Titles"
-                
+            
         elif event.button.id == "toggle-desc-btn":
             self.gen_desc = not self.gen_desc
-            if self.gen_desc:
-                event.button.label = "[green]✔[/] Generate Descriptions"
-            else:
-                event.button.label = "[red]✘[/] Skip Descriptions"
-                
+            
         elif event.button.id == "toggle-highlights-btn":
             self.gen_highlights = not self.gen_highlights
-            if self.gen_highlights:
-                event.button.label = "[green]✔[/] Generate Highlights"
-            else:
-                event.button.label = "[red]✘[/] Skip Highlights"
 
     def show_job_label(self, label_id: str, text: str):
         label = self.query_one(label_id, Label)
@@ -418,9 +425,9 @@ class GenerationScreen(ControlCenterBaseScreen):
                 self.app.call_from_thread(self.disable_cancel_button)
                 return
                 
-            self.state.set_step_status('gen', 'Completed')
-            self.state.set('ongoing_generation', None, save=False)
-            self.state.set('export_source_table', output_table, save=True)
+            self.post_message(StatusUpdateMessage('gen', 'Completed'))
+            self.post_message(StateUpdateMessage('ongoing_generation', None))
+            self.post_message(StateUpdateMessage('export_source_table', output_table))
             self.app.call_from_thread(self.disable_cancel_button)
             self.app.call_from_thread(self.notify, "Generation completed successfully!", severity="information")
             self.app.call_from_thread(self.query_one("#status-label", Label).update, "[green]Generation completed successfully![/]")
