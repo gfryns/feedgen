@@ -112,16 +112,17 @@ class ImagesScreen(ControlCenterBaseScreen):
         return f"{s} {size_name[i]}"
         
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        bucket = self.query_one("#bucket").value
-        
-        if event.button.id == "run-btn":
-            self.post_message(StateUpdateMessage('bucket', bucket))
-            self.query_one("#progress-bar").styles.display = "block"
-            self.run_worker(lambda: self.run_images(bucket), thread=True)
-        elif event.button.id == "create-btn":
-            self.run_worker(self.create_bucket(bucket))
-        elif event.button.id == "delete-btn":
-            self.run_worker(self.delete_images(bucket))
+        if event.button.id in ("run-btn", "create-btn", "delete-btn"):
+            bucket = self.query_one("#bucket").value
+            
+            if event.button.id == "run-btn":
+                self.post_message(StateUpdateMessage('bucket', bucket))
+                self.query_one("#progress-bar").styles.display = "block"
+                self.run_worker(lambda: self.run_images(bucket), thread=True)
+            elif event.button.id == "create-btn":
+                self.run_worker(self.create_bucket(bucket))
+            elif event.button.id == "delete-btn":
+                self.run_worker(self.delete_images(bucket))
                 
     async def create_bucket(self, bucket_name: str) -> None:
         self.notify("Creating bucket...")

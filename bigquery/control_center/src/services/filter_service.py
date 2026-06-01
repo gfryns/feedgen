@@ -38,3 +38,10 @@ def create_filtered_table(project_val: str, dataset_val: str, raw_table: str, id
     client = get_bq_client(project_val)
     client.query(sql_filter).result()
     log_cb("Table created successfully!\n")
+    
+    table = client.get_table(f"{project_val}.{dataset_val}.InputFiltered")
+    return {
+        'num_rows': table.num_rows,
+        'num_cols': len(table.schema),
+        'cols': [f.name for f in table.schema]
+    }

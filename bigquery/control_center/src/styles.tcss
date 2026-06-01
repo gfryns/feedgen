@@ -218,4 +218,9 @@ Grid#dialog {
     min-width: 10;
 }
 
+.col3 {
+    width: 33%;
+    padding: 0 1;
+}
+
 

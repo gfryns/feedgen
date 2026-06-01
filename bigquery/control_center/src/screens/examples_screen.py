@@ -28,6 +28,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
         
     def watch_examples_method(self, new_value: str) -> None:
         try:
+            self.notify(f"Method changed to: {new_value}")
             for m in ["sheet", "ids"]:
                 self.query_one(f"#{m}-container").styles.display = "none"
             self.query_one(f"#{new_value}-container").styles.display = "block"
@@ -87,6 +88,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
         
     def on_mount(self) -> None:
         """Initialize view."""
+        self.watch_examples_method(self.examples_method)
         self.run_worker(self.load_examples_preview)
         
     def on_select_changed(self, event: Select.Changed) -> None:
@@ -106,11 +108,13 @@ class ExamplesScreen(ControlCenterBaseScreen):
                 self.post_message(StateUpdateMessage('sheet_url', url))
                 self.post_message(StateUpdateMessage('sheet_name', name))
                 self.post_message(StateUpdateMessage('sheet_range', range_val))
+                self.post_message(StateUpdateMessage('examples_source', name))
                 
                 self.run_worker(self.load_from_sheet(url, name, range_val, self.sheet_header))
             elif method == "ids":
                 source = self.query_one("#ids-source").value
                 ids = self.query_one("#product-ids").value
+                self.post_message(StateUpdateMessage('examples_source', ids))
                 self.run_worker(self.load_by_ids(source, ids))
 
                 
@@ -135,6 +139,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             self.query_one("#preview-collapsible").title = f"Examples Preview ({total_count} stored)"
             
             # Update status in state based on actual count
+            self.post_message(StateUpdateMessage('examples_count', total_count))
             if total_count > 0:
                 self.post_message(StatusUpdateMessage('examples', 'Completed'))
             else:

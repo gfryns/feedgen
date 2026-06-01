@@ -13,3 +13,11 @@ class StatusUpdateMessage(Message):
         self.step = step
         self.status = status
         super().__init__()
+class OngoingStateUpdateMessage(Message):
+    """Message sent to the App to update ongoing generation state."""
+    def __init__(self, job_ids=None, prefixes=None, total_rows=None, clear=False) -> None:
+        self.job_ids = job_ids
+        self.prefixes = prefixes
+        self.total_rows = total_rows
+        self.clear = clear
+        super().__init__()

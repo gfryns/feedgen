@@ -12,8 +12,12 @@ import logging
 # Suppress chatty Vertex AI SDK logs
 logging.getLogger("google.cloud.aiplatform").setLevel(logging.WARNING)
 
-def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=False, state_path="state.json"):
+def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=False, state_path="state.json", update_cb=None):
     """Updates state.json with ongoing generation details."""
+    if update_cb:
+        update_cb(job_ids=job_ids, prefixes=prefixes, total_rows=total_rows, clear=clear)
+        return
+        
     try:
         if not os.path.exists(state_path):
             return
@@ -42,7 +46,7 @@ def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=Fal
     except Exception:
         pass # Ignore errors to avoid breaking the main flow
 
-def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path="state.json"):
+def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path="state.json", update_cb=None):
     """Polls jobs until completion and returns target prefixes."""
     all_done = False
     previous_states = {t: None for t in jobs.keys()}
@@ -55,7 +59,7 @@ def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancell
                 except Exception: pass
                 if progress_cb:
                     progress_cb(target=t, state="CANCELLED", total=0)
-            update_ongoing_state(clear=True)
+            update_ongoing_state(clear=True, update_cb=update_cb)
             return {'cancelled': True}
             
         all_done = True
@@ -87,7 +91,7 @@ def wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancell
                     parts = output_dir.split(f"gs://{bucket}/")
                     if len(parts) > 1:
                         prefix = parts[1] + "/"
-                        update_ongoing_state(prefixes={t: prefix}, state_path=state_path)
+                        update_ongoing_state(prefixes={t: prefix}, state_path=state_path, update_cb=update_cb)
                 
                 if progress_cb:
                     progress_cb(target=t, state=j.state.name, success_count=success_count, failed_count=failed_count, total=total_rows)
@@ -251,7 +255,7 @@ def load_and_merge_results(project, dataset, bucket, output_table, target_prefix
     # Clear ongoing state after successful merge of all targets
     update_ongoing_state(clear=True, state_path=state_path)
 
-def resume_generation_process(project, dataset, bucket, output_table, job_ids, log_cb, progress_cb, is_cancelled, state_path="state.json"):
+def resume_generation_process(project, dataset, bucket, output_table, job_ids, log_cb, progress_cb, is_cancelled, state_path="state.json", update_cb=None):
     """Resumes a generation process by polling existing jobs."""
     client = get_bq_client(project)
     storage_client = storage.Client(project=project)
@@ -284,7 +288,7 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
     if progress_cb:
         progress_cb(step_text="[Step 3/4] Resuming jobs monitoring...")
         
-    target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path=state_path)
+    target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, total_rows, state_path=state_path, update_cb=update_cb)
     
     if isinstance(target_prefixes, dict) and 'cancelled' in target_prefixes:
         return target_prefixes
@@ -294,7 +298,7 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
     
     return {'success': True, 'total_rows': total_rows}
 
-def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False, state_path: str = "state.json", gen_highlights: bool = False):
+def run_generation_process(project: str, dataset: str, lang: str, output_table: str, gen_titles: bool, gen_desc: bool, debug: bool, bucket: str, use_images: bool, web_done: bool, id_col: str, title_col: str, desc_col: str, image_col: str, region_val: str = "EU", model_val: str = "gemini-2.5-flash", output_bucket: str = "", log_cb=print, progress_cb=None, is_cancelled=lambda: False, state_path: str = "state.json", gen_highlights: bool = False, update_cb=None):
     """Runs the generation process using Vertex AI Batch Prediction."""
     client = get_bq_client(project)
     
@@ -411,7 +415,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         rows = list(client.query(query_data).result())
         
         # Save total rows to state.json for resume progress
-        update_ongoing_state(total_rows=len(rows), state_path=state_path)
+        update_ongoing_state(total_rows=len(rows), state_path=state_path, update_cb=update_cb)
         
         # Fetch examples
         query_examples = f"SELECT * FROM `{project}.{dataset}.Examples`"
@@ -581,7 +585,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
                     
                     jobs[target] = job
                     log_cb(f"Job created for {target}: {job.resource_name}\n")
-                    update_ongoing_state(job_ids={target: job.resource_name}, state_path=state_path)
+                    update_ongoing_state(job_ids={target: job.resource_name}, state_path=state_path, update_cb=update_cb)
                     success = True
                     if progress_cb:
                         progress_cb(target=target, state="PENDING", start_time=start_time)
@@ -596,7 +600,7 @@ def run_generation_process(project: str, dataset: str, lang: str, output_table: 
         if progress_cb:
             progress_cb(step_text="[Step 3/4] Running jobs in Vertex AI...")
             
-        target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, len(rows), state_path=state_path)
+        target_prefixes = wait_for_jobs_and_get_prefixes(jobs, bucket, log_cb, progress_cb, is_cancelled, len(rows), state_path=state_path, update_cb=update_cb)
         
         if isinstance(target_prefixes, dict) and 'cancelled' in target_prefixes:
             return target_prefixes

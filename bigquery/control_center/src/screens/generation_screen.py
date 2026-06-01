@@ -6,7 +6,7 @@ from services.bq_client import get_bq_client
 from textual.reactive import reactive
 from textual.css.query import NoMatches
 import services.generation_service as gen_srv
-from messages import StateUpdateMessage, StatusUpdateMessage
+from messages import StateUpdateMessage, StatusUpdateMessage, OngoingStateUpdateMessage
 
 LANGUAGES = [
     ("Afrikaans (af)", "Afrikaans (af)"),
@@ -270,6 +270,9 @@ class GenerationScreen(ControlCenterBaseScreen):
             bucket = self.state.get('bucket')
             output_table = self.state.get('output_table')
             
+            def update_cb(job_ids=None, prefixes=None, total_rows=None, clear=False):
+                self.post_message(OngoingStateUpdateMessage(job_ids, prefixes, total_rows, clear))
+                
             try:
                 import services.generation_service as gen_srv
                 result = gen_srv.resume_generation_process(
@@ -277,7 +280,8 @@ class GenerationScreen(ControlCenterBaseScreen):
                     job_ids,
                     log_cb=self.write_log,
                     progress_cb=progress_cb,
-                    is_cancelled=lambda: getattr(self.app, 'is_cancelled', False)
+                    is_cancelled=lambda: getattr(self.app, 'is_cancelled', False) or self.app._exit,
+                    update_cb=update_cb
                 )
                 
                 if result.get('cancelled'):
@@ -408,6 +412,9 @@ class GenerationScreen(ControlCenterBaseScreen):
                     if state in ["JOB_STATE_CANCELLED", "CANCELLED", "STOPPED", "JOB_STATE_SUCCEEDED", "SUCCEEDED"]:
                         self.app.call_from_thread(self.set_timer, 15, lambda: self.hide_job_label(label_id))
                     
+            def update_cb(job_ids=None, prefixes=None, total_rows=None, clear=False):
+                self.post_message(OngoingStateUpdateMessage(job_ids, prefixes, total_rows, clear))
+                
             result = gen_srv.run_generation_process(
                 project, dataset, lang, output_table, gen_titles, gen_desc, debug, images_bucket, use_images, web_done,
                 id_col, title_col, desc_col, image_col,
@@ -416,8 +423,9 @@ class GenerationScreen(ControlCenterBaseScreen):
                 model_val=model_val,
                 log_cb=self.write_log,
                 progress_cb=progress_cb,
-                is_cancelled=lambda: getattr(self.app, 'is_cancelled', False),
-                gen_highlights=gen_highlights
+                is_cancelled=lambda: getattr(self.app, 'is_cancelled', False) or self.app._exit,
+                gen_highlights=gen_highlights,
+                update_cb=update_cb
             )
             
             if result.get('cancelled'):

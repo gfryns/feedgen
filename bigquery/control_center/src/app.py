@@ -4,7 +4,7 @@ from textual.containers import Horizontal, Vertical, Container
 from textual import on
 from textual.reactive import reactive
 from state_manager import ControlCenterStateManager
-from messages import StateUpdateMessage, StatusUpdateMessage
+from messages import StateUpdateMessage, StatusUpdateMessage, OngoingStateUpdateMessage
 from screens.setup_screen import SetupScreen
 from screens.source_screen import SourceScreen
 from screens.options_screen import OptionsScreen
@@ -26,13 +26,13 @@ class StepListItem(ListItem):
         yield self.static
         
     def on_mount(self) -> None:
-        self.app.watch(self.app, "step_statuses", self.update_status)
+        self.watch(self.app, "step_statuses", self.update_status)
         
     def update_status(self, step_statuses: dict) -> None:
         if not hasattr(self.app, 'state'):
             return
             
-        status = self.app.get_computed_status(self.step_id)
+        status = self.app.get_computed_status(self.step_id, step_statuses)
         
         if status == 'Completed':
             status_str = "[#009E73]●[/]"
@@ -75,7 +75,7 @@ class ControlCenterApp(App):
                     yield StepListItem("images", "   2d. Import Product Images")
                     yield StepListItem("examples", "   2e. Select Examples")
                     yield StepListItem("gen", "3. Generation options")
-                    yield StepListItem("export", "4. Export to GMC")
+                    yield StepListItem("export", "4. Export Feed")
             with Container(id="main-content"):
                 yield Static(self.get_art(), id="dashboard-art", markup=True)
                 yield Label("--- Dashboard ---", id="dashboard-title", classes="bold")
@@ -166,10 +166,25 @@ class ControlCenterApp(App):
             self.step_statuses = self.state.get('steps', {})
         else:
             self.step_statuses = {**self.step_statuses, message.step: message.status}
+            
+    @on(OngoingStateUpdateMessage)
+    def on_ongoing_state_update(self, message: OngoingStateUpdateMessage) -> None:
+        if message.clear:
+            self.state.set('ongoing_generation', None)
+        else:
+            ongoing = self.state.get('ongoing_generation', {})
+            if message.job_ids:
+                if 'job_ids' not in ongoing: ongoing['job_ids'] = {}
+                ongoing['job_ids'].update(message.job_ids)
+            if message.prefixes:
+                if 'prefixes' not in ongoing: ongoing['prefixes'] = {}
+                ongoing['prefixes'].update(message.prefixes)
+            if message.total_rows is not None:
+                ongoing['total_rows'] = message.total_rows
+            self.state.set('ongoing_generation', ongoing)
         
     def on_resume_decision(self, resume: bool) -> None:
         if resume:
-            self.state.set('auto_resume', True, save=False)
             self.route_to_step('gen')
         else:
             # Cancel existing jobs in background to avoid freezing UI
@@ -186,7 +201,7 @@ class ControlCenterApp(App):
                             match = re.search(r'locations/([^/]+)/', job_id)
                             loc = match.group(1) if match else "global"
                             
-                            aiplatform.init(project=self.state.get('project'), location=loc)
+                            aiplatform.init(project=self.project_id, location=loc)
                             job = aiplatform.BatchPredictionJob(job_id)
                             job.cancel()
                         except Exception:
@@ -197,32 +212,37 @@ class ControlCenterApp(App):
             
             from services.generation_service import update_ongoing_state
             update_ongoing_state(clear=True)
-            self.state.set_step_status('gen', 'Pending')
+            self.post_message(StatusUpdateMessage('gen', 'Pending'))
         
-    def get_computed_status(self, step: str) -> str:
+    def get_computed_status(self, step: str, step_statuses: dict = None) -> str:
         """Calculate the display status based on state and dependencies."""
+        def get_status(s):
+            if step_statuses and s in step_statuses:
+                return step_statuses[s]
+            return self.state.get_step_status(s)
+            
         if step == 'project':
-            status = self.state.get_step_status('config')
+            status = get_status('config')
             allowed = True
         elif step == 'dataset':
-            status = 'Completed' if self.state.get_step_status('infra') == 'Completed' and self.state.get_step_status('procedures') == 'Completed' else 'Pending'
-            allowed = self.state.get_step_status('config') == 'Completed'
+            status = 'Completed' if get_status('infra') == 'Completed' and get_status('procedures') == 'Completed' else 'Pending'
+            allowed = get_status('config') == 'Completed'
         elif step == 'web':
             allowed, _ = self.state.check_dependency(step)
             if allowed:
                 url_col = self.state.get('url_col')
                 if url_col == 'skip' or not url_col:
                     return 'Skipped'
-            status = self.state.get_step_status(step)
+            status = get_status(step)
         elif step == 'images':
             allowed, _ = self.state.check_dependency(step)
             if allowed:
                 image_col = self.state.get('image_col')
                 if image_col == 'skip' or not image_col:
                     return 'Skipped'
-            status = self.state.get_step_status(step)
+            status = get_status(step)
         else:
-            status = self.state.get_step_status(step)
+            status = get_status(step)
             allowed, _ = self.state.check_dependency(step)
             
         if status == 'Completed':
@@ -266,12 +286,12 @@ class ControlCenterApp(App):
         steps_data = [
             ('project', '1. Environment Setup', f"Project: {project} | Dataset: {dataset}"),
             ('source', '2a. Source Feed', f"Raw Table: {state.get('raw_table', 'N/A')}"),
-            ('filter', '2b. Feed Filtering', f"Columns: {state.get('include_cols', 'N/A')}"),
+            ('filter', '2b. Feed Filtering', f"Rows: {state.get('filter_rows', 'N/A')} | Cols: {state.get('filter_cols', 'N/A')} ({', '.join(state.get('filter_col_names', [])[:3])}...)"),
             ('web', '2c. Import Product Pages', f"Selector: {state.get('selector', 'N/A')}"),
-            ('images', '2d. Import Product Images', f"Bucket: {state.get('bucket', 'N/A')}"),
-            ('examples', '2e. Select Examples', f"Sheet: {state.get('sheet_name', 'N/A')}"),
+            ('images', '2d. Import Product Images', f"Bucket: {state.get('bucket', 'N/A')} | Folder: images"),
+            ('examples', '2e. Select Examples', f"Count: {state.get('examples_count', 0)} | Source: {state.get('examples_source', 'N/A')}"),
             ('gen', '3. Generation options', f"Lang: {state.get('language', 'N/A')} | Out: {project}.{dataset}.{state.get('output_table', 'Output')}"),
-            ('export', '4. Export to GMC', f"Type: {state.get('feed_type', 'supplemental')} | Target: {project}.{dataset}.{state.get('export_table', 'ExportGMC')}")
+            ('export', '4. Export Feed', "")
         ]
         
         for step_id, title, details in steps_data:

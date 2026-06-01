@@ -88,6 +88,17 @@ class OptionsScreen(ControlCenterBaseScreen):
             url_val = self.state.get('url_col', url_guess)
             image_val = self.state.get('image_col', image_guess)
             
+            # Validate that loaded values exist in options to avoid Textual crash
+            valid_options = [o[1] for o in options]
+            valid_options_with_skip = [o[1] for o in options_with_skip]
+            
+            if id_val not in valid_options: id_val = id_guess
+            if title_val not in valid_options: title_val = title_guess
+            if desc_val not in valid_options: desc_val = desc_guess
+            
+            if url_val not in valid_options_with_skip: url_val = "skip"
+            if image_val not in valid_options_with_skip: image_val = "skip"
+            
             await self.query_one("#id-col-container").mount(Select(options, value=id_val, id="id-col"))
             await self.query_one("#title-col-container").mount(Select(options, value=title_val, id="title-col"))
             await self.query_one("#desc-col-container").mount(Select(options, value=desc_val, id="desc-col"))
@@ -132,10 +143,14 @@ class OptionsScreen(ControlCenterBaseScreen):
             from services.filter_service import create_filtered_table as run_filter
             loop = asyncio.get_running_loop()
             
-            await loop.run_in_executor(
+            result = await loop.run_in_executor(
                 None,
                 lambda: run_filter(project, dataset, raw_table, id_col, title_col, desc_col, url_col, image_col, include_cols, filters, self.write_log)
             )
+            
+            self.post_message(StateUpdateMessage('filter_rows', result['num_rows']))
+            self.post_message(StateUpdateMessage('filter_cols', result['num_cols']))
+            self.post_message(StateUpdateMessage('filter_col_names', result['cols']))
             
             self.post_message(StatusUpdateMessage('filter', 'Completed'))
             
