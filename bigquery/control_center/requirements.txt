@@ -1,0 +1,15 @@
+textual
+google-cloud-bigquery
+google-cloud-service-usage
+google-cloud-bigquery-connection
+google-cloud-resource-manager
+google-cloud-storage
+beautifulsoup4
+pyOpenSSL<26.2.0
+aiohttp
+requests
+pyyaml
+gspread
+google-auth
+certifi
+google-cloud-aiplatform

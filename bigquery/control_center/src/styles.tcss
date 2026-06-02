@@ -1,0 +1,226 @@
+/* Main App Styles */
+#sidebar {
+    width: 40;
+    background: $surface;
+    border-right: tall $primary;
+    padding: 1;
+}
+
+#sidebar-title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#main-content {
+    padding: 2;
+}
+
+ListItem {
+    padding: 1;
+}
+
+/* Common Screen Styles */
+#form-container {
+    padding: 2;
+}
+
+#title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#preview-title, #mapping-title, #options-title, #scraping-title, #images-title, #examples-source-title, #gen-config-title, #export-config-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#form-container Input, #form-container Select {
+    margin-bottom: 1;
+}
+
+#form-container Button {
+    margin-right: 1;
+    margin-top: 1;
+}
+
+Collapsible {
+    margin-top: 1;
+}
+
+#loading {
+    display: none;
+    height: 1;
+    margin-top: 1;
+}
+
+#status-label {
+    margin-top: 1;
+    text-style: bold;
+}
+
+#process-logs {
+    height: 10;
+    background: $surface;
+    margin-top: 1;
+}
+
+#copy-logs-btn {
+    margin-top: 1;
+}
+
+.col {
+    width: 50%;
+    padding: 0 1;
+}
+
+.col3 {
+    width: 33%;
+    padding: 0 1;
+}
+
+.col4 {
+    width: 25%;
+    padding: 0 1;
+}
+
+.col5 {
+    width: 20%;
+    padding: 0 1;
+}
+
+.card {
+    border: round $primary;
+    padding: 1 2;
+    margin-bottom: 1;
+    background: $surface;
+    min-height: 10;
+}
+
+#mapping-card {
+    padding: 1 1;
+}
+
+#options-card {
+    padding: 1 1;
+    min-height: 16;
+}
+
+#progress-bar {
+    display: none;
+    margin-top: 1;
+}
+
+/* Specific Screen Styles */
+#custom-model { display: none; margin-top: 1; }
+#info-summary { margin-top: 1; }
+#examples-table { height: 8; margin-top: 1; border: solid $primary; }
+#gmc-tip { margin-top: 1; margin-bottom: 1; text-style: italic; }
+#bucket-info { margin-top: 1; text-style: italic; }
+#actions-container { margin-top: 1; }
+.method-container { display: none; margin-top: 1; }
+#sheet-fields-row { align-vertical: bottom; }
+#examples-tip { margin-top: 1; margin-bottom: 1; text-style: italic; }
+#examples-preview { height: 9; margin-top: 1; border: solid $primary; }
+#gen-row-1 { align-vertical: bottom; margin-bottom: 1; }
+#gen-row-2 { align-vertical: bottom; margin-top: 1; }
+#gen-row-3 { align-vertical: bottom; margin-top: 1; }
+#table-col { width: 70%; padding: 0 1; }
+#workers-col { width: 30%; padding: 0 1; }
+
+#selector {
+    width: 1fr;
+    margin-bottom: 0;
+    height: 3;
+}
+#detect-selector-btn {
+    width: auto;
+    margin-top: 0;
+    height: 3;
+}
+#selector-row {
+    align-vertical: middle;
+}
+
+.job-label {
+    display: none;
+    margin-top: 1;
+    text-style: bold;
+}
+
+/* Modal Styles */
+ResumeModal {
+    align: center middle;
+}
+
+Grid#dialog {
+    grid-size: 2;
+    grid-gutter: 1;
+    grid-rows: auto auto;
+    border: thick $primary;
+    background: $surface;
+    padding: 1;
+    width: 60;
+    height: auto;
+    min-height: 10;
+}
+
+#question {
+    column-span: 2;
+    height: auto;
+    content-align: center middle;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+#resume {
+    width: 100%;
+}
+
+#fresh {
+    width: 100%;
+}
+
+#source-table-row {
+    align-vertical: middle;
+}
+
+#source-table-row Input {
+    width: 80%;
+}
+
+#source-table-row Button {
+    width: auto;
+    min-width: 7;
+    height: 3;
+    margin-top: -1;
+}
+
+#chk-row {
+    align-vertical: middle;
+}
+
+#chk-row Button {
+    margin-top: -1;
+    margin-right: 1;
+}
+
+#table-select-row {
+    align-vertical: middle;
+}
+
+#table-select-container {
+    width: 70%;
+}
+
+#load-info-btn {
+    width: auto;
+    min-width: 10;
+}
+
+.col3 {
+    width: 33%;
+    padding: 0 1;
+}
+
+

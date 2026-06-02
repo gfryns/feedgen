@@ -23,8 +23,24 @@ For [FeedGen](https://github.com/google-marketing-solutions/feedgen)'s core purp
 ⚠️ This does **not** cover:
 * how to facilitate recurring processing of newly added products,
 * how to extract product attributes (like [FeedGen](../README.md) does),
-* how to use the Product Studio API from BigQuery, or
-* how to build a graphical user interface around this.
+* how to use the Product Studio API from BigQuery.
+
+
+## 🖥️ Control Center (Interactive UI)
+
+If you prefer an interactive, terminal-based User Interface instead of executing scripts manually, we have included the **FeedGen BigQuery Control Center**.
+
+This control center provides a guided, step-by-step experience to:
+* Configure your Google Cloud Project and APIs.
+* Setup BigQuery Datasets, Connections, and Gemini Models.
+* Filter and map your feed data interactively.
+* Automatically export the enriched outputs to Google Merchant Center format.
+
+To use the control center, navigate into the `control_center` directory and follow its instructions:
+```bash
+cd control_center/
+cat README.md
+```
 
 ## Performance
 
