@@ -96,6 +96,9 @@ class SetupScreen(ControlCenterBaseScreen):
             region_val = self.query_one("#region").value
             bucket_val = self.query_one("#bucket").value
                     
+            if bucket_val:
+                bucket_val = bucket_val.replace("${project}", project_val)
+                    
             if not project_val:
                 self.notify("Project ID is required!", severity="error")
                 return
