@@ -4,8 +4,7 @@ The **FeedGen BigQuery Control Center** is an interactive, terminal-based User I
 
 Using this control center, digital marketers and data engineers can seamlessly deploy a BigQuery-native infrastructure to enhance product titles and descriptions using Google's Gemini Large Language Models (LLMs).
 
-<img src="assets/screenshot.svg" alt="Dashboard Preview" width="80%" /><br>
-*(Built with [Textual](https://textual.textualize.io/))*
+![Dashboard Preview](https://textual.textualize.io/images/logo.svg) *(Built with [Textual](https://textual.textualize.io/))*
 
 ## 🚀 Features
 
@@ -21,19 +20,6 @@ Using this control center, digital marketers and data engineers can seamlessly d
     *   **Image Processing:** Downloads product images to Google Cloud Storage (GCS) and registers them as BigQuery External Tables to enable multimodal LLM prompting.
 *   **Few-Shot Prompting:** Easily import "Golden Examples" from a Google Sheet or by manually selecting high-performing product IDs to guide the LLM's output style.
 *   **Batch Prediction:** Orchestrates Vertex AI Batch Prediction jobs to generate new titles and descriptions efficiently at scale.
-
-## 🗺️ Guided Workflow
-
-The Control Center guides you through the following steps to build your pipeline:
-1. **Environment Setup**: Project ID, Dataset, and Region configuration.
-2. **Input Setup**:
-   * **Source Feed**: Select your source BigQuery table.
-   * **Feed Filtering**: Apply SQL filters to limit the scope.
-   * **Import Product Pages**: (Optional) Scrape product detail pages.
-   * **Import Product Images**: (Optional) Process images for multimodal analysis.
-   * **Select Examples**: Import few-shot examples to guide the LLM.
-3. **Generation Options**: Select models and output tables.
-4. **Export Feed**: Finalize and export the enriched feed.
 
 ## 📁 Project Structure
 
