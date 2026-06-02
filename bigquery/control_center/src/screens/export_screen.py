@@ -104,8 +104,9 @@ class ExportScreen(ControlCenterBaseScreen):
                     with Vertical(classes="col"):
                         yield Label("Source BigQuery Table:")
                         with Horizontal(id="source-table-row"):
-                            yield Input(value=self.state.get('export_source_table', self.state.get('output_table', 'Output')), placeholder="table", id="raw-table")
+                            yield Container(id="table-select-container")
                             yield Button("↻", id="check-schema-btn")
+                        yield Input(value=self.state.get('export_source_table', self.state.get('output_table', 'Output')), placeholder="table", id="raw-table")
                     with Vertical(classes="col", id="chk-container"):
                         yield Label("Columns to Export:")
                         with Horizontal(id="chk-row"):
@@ -126,12 +127,47 @@ class ExportScreen(ControlCenterBaseScreen):
         
     def on_mount(self) -> None:
         """Initialize visibility based on state."""
+        self.query_one("#raw-table").styles.display = "none"
+        self.run_worker(self.populate_tables)
+        
         dest_type = self.state.get('destination_type', 'gcs')
         self.update_target_visibility(dest_type)
         
         feed_type = self.state.get('feed_type', 'supplemental')
         if feed_type == "full":
             self.query_one("#chk-container").styles.display = "none"
+            
+    async def populate_tables(self) -> None:
+        project = self.state.get('project')
+        dataset = self.state.get('dataset')
+        
+        try:
+            from services.bq_client import get_bq_client
+            loop = asyncio.get_running_loop()
+            client = get_bq_client(project)
+            
+            def fetch():
+                tables = client.list_tables(dataset)
+                return [(t.table_id, t.table_id) for t in tables]
+                
+            options = await loop.run_in_executor(None, fetch)
+            options.append(("Other (Enter manually)", "other"))
+            
+            export_source_table = self.state.get('export_source_table', self.state.get('output_table', 'Output'))
+            
+            val = "other"
+            if export_source_table in [o[1] for o in options]:
+                val = export_source_table
+                
+            select_widget = Select(options, value=val, id="table-select")
+            await self.query_one("#table-select-container").mount(select_widget)
+            
+            if val == "other":
+                self.query_one("#raw-table").styles.display = "block"
+                
+        except Exception as e:
+            self.notify(f"Error fetching tables: {e}", severity="error")
+            self.query_one("#raw-table").styles.display = "block"
         
     def update_target_visibility(self, dest_type: str) -> None:
         if dest_type == "gcs":
@@ -163,6 +199,13 @@ class ExportScreen(ControlCenterBaseScreen):
                 self.query_one("#chk-container").styles.display = "none"
             else:
                 self.query_one("#chk-container").styles.display = "block"
+        elif event.select.id == "table-select":
+            if event.value == "other":
+                self.query_one("#raw-table").styles.display = "block"
+            else:
+                self.query_one("#raw-table").styles.display = "none"
+                if event.value:
+                    self.query_one("#raw-table").value = event.value
             
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "check-schema-btn":
@@ -185,6 +228,7 @@ class ExportScreen(ControlCenterBaseScreen):
                     
                 self.notify("Schema loaded successfully!", severity="information")
                 self.query_one("#status-label", Label).update("[green]Schema loaded successfully![/]")
+                self.set_timer(7, lambda: self.query_one("#status-label", Label).update(""))
                 
                 # Update reactive attributes
                 self.title_available = 'title' in columns
@@ -194,6 +238,7 @@ class ExportScreen(ControlCenterBaseScreen):
             except Exception as e:
                 self.notify(f"Error loading schema: {e}", severity="error")
                 self.query_one("#status-label", Label).update(f"[red]Error loading schema: {escape(str(e))}[/]")
+                self.set_timer(10, lambda: self.query_one("#status-label", Label).update(""))
                 
         elif event.button.id == "chk-title":
             self.export_title = not self.export_title
@@ -247,21 +292,43 @@ class ExportScreen(ControlCenterBaseScreen):
         dataset = self.state.get('dataset')
         output_table = self.state.get('output_table', 'Output')
         
+        def log_cb_wrapper(text: str) -> None:
+            self.write_log(text)
+            clean_text = text.strip().replace("\n", " ")
+            if not clean_text:
+                return
+            if "Starting Merchant Center Export" in clean_text:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Step 1/2: Initializing Merchant Center export...[/]")
+            elif "Deploying EmbedForMerchantFeed" in clean_text:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Step 1/2: Deploying BigQuery formatting function...[/]")
+            elif "Creating Supplemental Feed" in clean_text or "Creating Full Feed" in clean_text:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Step 1/2: Generating export SQL view...[/]")
+            elif "Executing SQL to fetch data" in clean_text:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Step 1/2: Fetching formatted feed records...[/]")
+            elif "Fetched" in clean_text and "rows from BigQuery" in clean_text:
+                parts = clean_text.split()
+                row_count = parts[1] if len(parts) > 1 else "data"
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, f"[bold]Step 2/2: Formatting {row_count} records for destination...[/]")
+            elif "Exporting data to GCS" in clean_text or "Exporting data to Google Sheet" in clean_text:
+                self.app.call_from_thread(self.query_one("#status-label", Label).update, "[bold]Step 2/2: Writing data to external feed destination...[/]")
+                
         try:
             from services.export_service import export_to_gmc
             loop = asyncio.get_running_loop()
             
             await loop.run_in_executor(
                 None,
-                lambda: export_to_gmc(project, dataset, raw_table, output_table, export_table, feed_type, destination_type, destination_target, filename, sheet_name, self.write_log, export_title, export_desc, export_highlights)
+                lambda: export_to_gmc(project, dataset, raw_table, output_table, export_table, feed_type, destination_type, destination_target, filename, sheet_name, log_cb_wrapper, export_title, export_desc, export_highlights)
             )
             
             self.post_message(StatusUpdateMessage('export', 'Completed'))
             
             self.notify("Export completed successfully!", severity="information")
             self.query_one("#status-label", Label).update("[green]Export completed successfully![/]")
+            self.set_timer(7, lambda: self.query_one("#status-label", Label).update(""))
             
         except Exception as e:
             self.write_log(f"Error: {e}\n")
             self.notify(f"Error during export: {e}", severity="error")
             self.query_one("#status-label", Label).update(f"[red]Error during export: {escape(str(e))}[/]")
+            self.set_timer(10, lambda: self.query_one("#status-label", Label).update(""))
