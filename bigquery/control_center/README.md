@@ -4,7 +4,7 @@ The **FeedGen BigQuery Control Center** is an interactive, terminal-based User I
 
 Using this control center, digital marketers and data engineers can seamlessly deploy a BigQuery-native infrastructure to enhance product titles and descriptions using Google's Gemini Large Language Models (LLMs).
 
-![Dashboard Preview](https://textual.textualize.io/images/logo.svg) *(Built with [Textual](https://textual.textualize.io/))*
+![Dashboard Preview](assets/screenshot.svg) *(Built with [Textual](https://textual.textualize.io/))*
 
 ## 🚀 Features
 
