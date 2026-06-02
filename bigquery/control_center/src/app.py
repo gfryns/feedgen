@@ -20,7 +20,7 @@ class StepListItem(ListItem):
         super().__init__(id=step_id)
         self.step_id = step_id
         self.base_text = base_text
-        self.static = Static(f"● {base_text}")
+        self.static = Static(f"● {base_text}", markup=True)
         
     def compose(self) -> ComposeResult:
         yield self.static
@@ -117,6 +117,10 @@ class ControlCenterApp(App):
         
         self.update_dashboard()
         
+        # Update sidebar dots now that state is available
+        for item in self.query(StepListItem):
+            item.update_status(self.step_statuses)
+            
         # Check for ongoing generation to resume
         if self.state.get_step_status('gen') == 'Processing':
             from screens.resume_modal import ResumeModal
