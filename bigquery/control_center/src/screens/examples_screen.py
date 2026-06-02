@@ -77,7 +77,7 @@ class ExamplesScreen(ControlCenterBaseScreen):
             with Horizontal():
                 yield Button("Run Import", variant="success", id="run-btn")
                 yield Button("Delete Stored Examples", variant="error", id="delete-btn")
-                yield Button("Cancel", id="back-btn")
+                yield Button("Back", id="back-btn")
                 
             yield Label("", id="status-label")
                 

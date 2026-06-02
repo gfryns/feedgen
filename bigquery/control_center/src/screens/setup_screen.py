@@ -78,7 +78,7 @@ class SetupScreen(ControlCenterBaseScreen):
                 
             with Horizontal():
                 yield Button("Save and Deploy", variant="success", id="save-deploy-btn")
-                yield Button("Cancel", id="back-btn")
+                yield Button("Back", id="back-btn")
                 
             yield LoadingIndicator(id="loading")
             yield Label("", id="status-label")

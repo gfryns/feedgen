@@ -45,7 +45,7 @@ class OptionsScreen(ControlCenterBaseScreen):
             
             with Horizontal():
                 yield Button("Run Filter", variant="success", id="save-create-btn")
-                yield Button("Cancel", id="back-btn")
+                yield Button("Back", id="back-btn")
                 
             with Collapsible(title="Logs", id="logs-collapsible", collapsed=True):
                 yield Log(id="process-logs")

@@ -27,7 +27,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
                     id="msg"
                 )
                 with Horizontal():
-                    yield Button("Cancel", id="back-btn")
+                    yield Button("Back", id="back-btn")
             else:
                 with Container(classes="card"):
                     yield Label("Scraping Configuration", id="scraping-title")
@@ -40,7 +40,7 @@ class ScrapingScreen(ControlCenterBaseScreen):
                 
                 with Horizontal():
                     yield Button("Run Scraping", variant="success", id="run-btn")
-                    yield Button("Cancel", id="back-btn")
+                    yield Button("Back", id="back-btn")
                     
                 yield ProgressBar(id="progress-bar")
                 

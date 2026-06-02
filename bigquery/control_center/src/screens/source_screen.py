@@ -34,8 +34,8 @@ class SourceScreen(ControlCenterBaseScreen):
                 yield DataTable(id="examples-table")
             
             with Horizontal():
-                yield Button("Save & Return", variant="success", id="select-btn")
-                yield Button("Cancel", id="back-btn")
+                yield Button("Save", variant="success", id="select-btn")
+                yield Button("Back", id="back-btn")
         yield Footer()
         
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -51,7 +51,7 @@ class SourceScreen(ControlCenterBaseScreen):
             
             self.post_message(StateUpdateMessage('raw_table', raw_table))
             self.post_message(StatusUpdateMessage('source', 'Completed'))
-            self.dismiss(True)
+            # self.dismiss(True)
             
     def on_mount(self) -> None:
         """Load tables and auto-load info if table is set."""
