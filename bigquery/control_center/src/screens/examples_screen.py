@@ -12,9 +12,13 @@ from messages import StateUpdateMessage, StatusUpdateMessage
 class ExamplesScreen(ControlCenterBaseScreen):
     """Screen for Step 3e: Manage Examples."""
     
+    examples_method = reactive("sheet")
+    sheet_header = reactive(True)
+    
     def __init__(self, state):
         super().__init__(state)
         self.examples_method = self.state.get('examples_method', 'sheet')
+        self.sheet_header = True
         
         self.methods = [
             ("Load from Google Spreadsheet", "sheet"),
