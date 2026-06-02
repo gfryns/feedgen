@@ -22,7 +22,7 @@ class SetupScreen(ControlCenterBaseScreen):
         try:
             with open('config.yaml', 'r') as f:
                 config = yaml.safe_load(f)
-                self.regions = [(r['label'], r['value']) for r in config.get('regions', [])]
+                self.regions = [(r['label'], r['value']) for r in (config.get('regions') or [])]
         except Exception as e:
             self.write_log(f"Error loading config.yaml: {e}\n")
             self.regions = [("EU", "EU"), ("US", "US")]
@@ -62,7 +62,7 @@ class SetupScreen(ControlCenterBaseScreen):
                         try:
                             with open('config.yaml', 'r') as f:
                                 config = yaml.safe_load(f)
-                                buckets_config = config.get('buckets', {})
+                                buckets_config = config.get('buckets') or {}
                                 default_bucket = buckets_config.get('name', '')
                         except Exception:
                             pass

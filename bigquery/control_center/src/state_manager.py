@@ -57,7 +57,8 @@ class ControlCenterStateManager:
         self.save()
         
     def get_step_status(self, step_name):
-        return self.data.get('steps', {}).get(step_name, 'Pending')
+        steps = self.data.get('steps') or {}
+        return steps.get(step_name, 'Pending')
         
     def set_step_status(self, step_name, status, save=True):
         if 'steps' not in self.data:

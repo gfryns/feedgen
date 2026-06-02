@@ -101,7 +101,7 @@ class ControlCenterApp(App):
         self.project_id = self.state.get('project', '')
         self.dataset_name = self.state.get('dataset', 'feedgen_dataset')
         self.bucket_name = self.state.get('bucket', '')
-        self.step_statuses = self.state.get('steps', {})
+        self.step_statuses = self.state.get('steps') or {}
         
         if self.state.debug:
             from action_logger import DEBUG_LOG_FILE
@@ -167,7 +167,7 @@ class ControlCenterApp(App):
         
         if message.status == 'Completed' and message.step in ['source', 'filter']:
             self.state.invalidate_descendants(message.step)
-            self.step_statuses = self.state.get('steps', {})
+            self.step_statuses = self.state.get('steps') or {}
         else:
             self.step_statuses = {**self.step_statuses, message.step: message.status}
             
@@ -176,7 +176,7 @@ class ControlCenterApp(App):
         if message.clear:
             self.state.set('ongoing_generation', None)
         else:
-            ongoing = self.state.get('ongoing_generation', {})
+            ongoing = self.state.get('ongoing_generation') or {}
             if message.job_ids:
                 if 'job_ids' not in ongoing: ongoing['job_ids'] = {}
                 ongoing['job_ids'].update(message.job_ids)

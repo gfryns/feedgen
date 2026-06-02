@@ -28,7 +28,7 @@ def update_ongoing_state(job_ids=None, prefixes=None, total_rows=None, clear=Fal
         if clear:
             state.pop('ongoing_generation', None)
         else:
-            ongoing = state.get('ongoing_generation', {})
+            ongoing = state.get('ongoing_generation') or {}
             if job_ids:
                 if 'job_ids' not in ongoing: ongoing['job_ids'] = {}
                 ongoing['job_ids'].update(job_ids)
@@ -266,7 +266,7 @@ def resume_generation_process(project, dataset, bucket, output_table, job_ids, l
         if os.path.exists(state_path):
             with open(state_path, 'r') as f:
                 state = json.load(f)
-                ongoing = state.get('ongoing_generation', {})
+                ongoing = state.get('ongoing_generation') or {}
                 total_rows = ongoing.get('total_rows', 0)
             log_cb(f"Retrieved total_rows from state: {total_rows}\n")
     except Exception as e:
