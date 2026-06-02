@@ -54,7 +54,7 @@ async def detect_css_selector(project: str, dataset: str, url_col: str, sample_c
     log_cb("Calling Gemini to analyze HTML...\n")
     
     aiplatform.init(project=project)
-    model = GenerativeModel("gemini-1.5-flash")
+    model = GenerativeModel("gemini-3.5-flash")
     
     # Construct prompt with all HTMLs
     prompt = "You are an expert web scraper. Analyze the following HTML contents of product pages.\n"

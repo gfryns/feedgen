@@ -36,7 +36,7 @@ class TestScrapingService:
         # Assert
         assert selector == ".desc"
         mock_bq.query.assert_called_once()
-        mock_gen_model.assert_called_once_with("gemini-1.5-flash")
+        mock_gen_model.assert_called_once_with("gemini-3.5-flash")
         mock_model.generate_content.assert_called_once()
 
     @pytest.mark.asyncio
