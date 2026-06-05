@@ -151,6 +151,15 @@ class SetupScreen(ControlCenterBaseScreen):
                         project_val, bucket_val, region_val, log_cb=self.write_log
                     )
                 )
+                
+            # 4. Create BigQuery Cloud Resource Connection and configure IAM
+            from services.setup_service import create_connection
+            await loop.run_in_executor(
+                None,
+                lambda: create_connection(
+                    project_val, "feedgen_connection", region_val, bucket_val, log_cb=self.write_log
+                )
+            )
             
             # Set step statuses via messages
             self.post_message(StatusUpdateMessage('config', 'Completed'))
