@@ -1,4 +1,5 @@
-import subprocess
+from google.cloud import service_usage_v1
+import google.auth
 
 def enable_apis(project_val: str, log_cb=print):
     """Enables the necessary APIs for the given GCP project (Vertex AI, BigQuery, etc.)."""
@@ -12,22 +13,22 @@ def enable_apis(project_val: str, log_cb=print):
         "cloudresourcemanager.googleapis.com"
     ]
     
-    for api in apis:
-        log_cb(f"Enabling {api} for project {project_val}...\n")
-        try:
-            # Using gcloud CLI as it is more robust for project setup/bootstrapping
-            result = subprocess.run(
-                ["gcloud", "services", "enable", api, "--project", project_val],
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            if result.stdout:
-                log_cb(result.stdout)
-            if result.stderr:
-                log_cb(result.stderr)
-        except subprocess.CalledProcessError as e:
-            log_cb(f"Error enabling {api}: {e.stderr}\n")
-            raise Exception(f"Failed to enable {api}: {e.stderr}")
-            
+    log_cb(f"Enabling APIs: {', '.join(apis)} for project {project_val}...\n")
+    try:
+        credentials, _ = google.auth.default()
+        client = service_usage_v1.ServiceUsageClient(credentials=credentials)
+        
+        request = service_usage_v1.BatchEnableServicesRequest(
+            parent=f"projects/{project_val}",
+            service_ids=apis
+        )
+        
+        operation = client.batch_enable_services(request=request)
+        log_cb("Waiting for GCP Service Usage operation to complete...\n")
+        operation.result()
+        log_cb("APIs enabled successfully.\n")
+    except Exception as e:
+        log_cb(f"Error enabling APIs: {e}\n")
+        raise Exception(f"Failed to enable APIs: {e}")
+        
     log_cb("Done.\n")
